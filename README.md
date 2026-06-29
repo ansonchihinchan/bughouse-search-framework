@@ -1,0 +1,1 @@
+A bughouse search framework for experimenting with cooperative AI strategies.
