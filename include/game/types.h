@@ -24,7 +24,18 @@ using Square = int; // a1 = 0, ..., h8 = 63
 
 enum MoveType { NORMAL, PROMOTE, EN_PASSANT, CASTLE, DROP };
 
-enum CastlingRights { NO_CASTLING, WHITE_OO, WHITE_OOO, BLACK_OO, BLACK_OOO };
+enum CastlingRights : uint8_t {
+  NO_CASTLING = 0,
+  WHITE_OO = 1 << 0,  // 0001
+  WHITE_OOO = 1 << 1, // 0010
+  BLACK_OO = 1 << 2,  // 0100
+  BLACK_OOO = 1 << 3, // 1000
+
+  WHITE_CASTLING = WHITE_OO | WHITE_OOO,
+  BLACK_CASTLING = BLACK_OO | BLACK_OOO,
+
+  ANY_CASTLING = WHITE_CASTLING | BLACK_CASTLING
+};
 
 struct Move {
   Square from;
