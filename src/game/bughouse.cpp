@@ -1,5 +1,6 @@
 #include "game/bughouse.h"
 #include "game/movegen.h"
+#include <algorithm>
 #include <iostream>
 
 // Default time control: 3 + 2
@@ -47,6 +48,11 @@ bool BughouseState::apply_move(int player_id, Move move) {
     if (!player_pocket.contains(move.drop_pt))
       return false;
 
+    // Check the drop appears in the generated drop list
+    auto legal_drops = generate_drops(board, player_pocket);
+    if (std::find(legal_drops.begin(), legal_drops.end(), move) == legal_drops.end())
+      return false;
+
     // Validate the drop doesn't leave own king in check
     Board copy = board;
     copy.make_drop(move.drop_pt, move.to);
@@ -58,6 +64,11 @@ bool BughouseState::apply_move(int player_id, Move move) {
     board.make_drop(move.drop_pt, move.to);
     player_pocket.remove(move.drop_pt);
   } else {
+    // Check the move appears in the generated move list
+    auto legal_moves = generate_moves(board);
+    if (std::find(legal_moves.begin(), legal_moves.end(), move) == legal_moves.end())
+        return false;
+
     if (!board.is_legal(move))
       return false;
 
