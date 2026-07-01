@@ -1,10 +1,18 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 enum Colour : uint8_t { WHITE, BLACK, COLOUR_NO = 2 };
+constexpr Colour flip(Colour colour) { return static_cast<Colour>(colour ^ 1); }
 
-enum PieceType {
+using Square = int; // a1 = 0, ..., h8 = 63
+
+constexpr int rank_of(Square square) { return square >> 3; }
+constexpr int file_of(Square square) { return square & 7; }
+constexpr Square to_square(int file, int rank) { return rank * 8 + file; }
+
+enum PieceType : uint8_t {
   NO_PIECE_TYPE,
   PAWN,
   KNIGHT,
@@ -12,15 +20,23 @@ enum PieceType {
   ROOK,
   QUEEN,
   KING,
-  PIECE_TYPE_NO = 7
+  PIECE_TYPE_NO = 6
 };
 
 struct Piece {
-  PieceType type;
-  Colour colour;
-};
+  PieceType type = NO_PIECE_TYPE;
+  Colour colour = WHITE;
 
-using Square = int; // a1 = 0, ..., h8 = 63
+  constexpr bool empty() const { return type == NO_PIECE_TYPE; }
+
+  constexpr char to_char() const {
+    constexpr char piece_chars[COLOUR_NO][PIECE_TYPE_NO + 1] = {
+        {' ', 'P', 'N', 'B', 'R', 'Q', 'K'},
+        {' ', 'p', 'n', 'b', 'r', 'q', 'k'}};
+
+    return piece_chars[static_cast<int>(colour)][static_cast<int>(type)];
+  }
+};
 
 enum MoveType { NORMAL, PROMOTE, EN_PASSANT, CASTLE, DROP };
 
@@ -37,9 +53,60 @@ enum CastlingRights : uint8_t {
   ANY_CASTLING = WHITE_CASTLING | BLACK_CASTLING
 };
 
+inline std::string square_to_str(Square square) {
+  return std::string() + char('a' + (square % 8)) + char('1' + (square / 8));
+}
+
 struct Move {
-  Square from;
-  Square to;
+  Square from = -1;
+  Square to = -1;
   MoveType type = NORMAL;
-  PieceType promotion = NO_PIECE_TYPE;
+  PieceType promote_pt = NO_PIECE_TYPE;
+  PieceType drop_pt = NO_PIECE_TYPE;
+
+  // Constructors
+  static Move normal(Square from, Square to) {
+    return {from, to, NORMAL, NO_PIECE_TYPE, NO_PIECE_TYPE};
+  }
+  static Move promote(Square from, Square to, PieceType promote_pt) {
+    return {from, to, PROMOTE, promote_pt, NO_PIECE_TYPE};
+  }
+  static Move en_passant(Square from, Square to) {
+    return {from, to, EN_PASSANT, NO_PIECE_TYPE, NO_PIECE_TYPE};
+  }
+  static Move castling(Square from, Square to) {
+    return {from, to, CASTLE, NO_PIECE_TYPE, NO_PIECE_TYPE};
+  }
+  static Move drop(PieceType drop_pt, Square to) {
+    return {-1, to, DROP, NO_PIECE_TYPE, drop_pt};
+  }
+
+  bool is_drop() const { return type == DROP; }
+  bool is_capture() const { return type == EN_PASSANT; }
+  bool is_none() const { return from == -1 && type != DROP; }
+
+  bool operator==(const Move &move) const {
+    return from == move.from && to == move.to && type == move.type &&
+           promote_pt == move.promote_pt && drop_pt == move.drop_pt;
+  }
+  bool operator!=(const Move &o) const { return !(*this == o); }
+
+  std::string to_string() const {
+    if (type == DROP) {
+      // e.g. "N@e4"
+      constexpr char pt_chars[] = " PNBRQK";
+      return std::string(1, pt_chars[drop_pt]) + "@" + square_to_str(to);
+    }
+
+    std::string s = square_to_str(from) + square_to_str(to);
+
+    if (type == PROMOTE) {
+      constexpr char pt_chars[] = " pnbrqk";
+      s += pt_chars[promote_pt];
+    }
+
+    return s;
+  }
 };
+
+constexpr Move EMPTY_MOVE{};
