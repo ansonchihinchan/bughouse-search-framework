@@ -14,9 +14,9 @@ struct UndoInfo {
   Piece captured;
 
   Square enPassantSquare = -1;
-  uint8_t castlingRights = ANY_CASTLING;
+  CastlingRights castlingRights = ANY_CASTLING;
 
-  int halfmoveClock = 0;
+  int halfMove = 0;
   uint64_t hash = 0;
 
   PieceType droppedPiece = NO_PIECE_TYPE;
@@ -27,7 +27,7 @@ class Board {
 public:
   std::array<Piece, SQUARE_NO> squares{};
 
-  Bitboard bitboards[COLOUR_NO][PIECE_TYPE_NO]{};
+  std::array<Bitboard, PIECE_NO> bitboards{};
   Colour sideToMove = WHITE;
   Square enPassantSquare = -1;
   CastlingRights castlingRights = ANY_CASTLING;
@@ -57,7 +57,7 @@ public:
 
   // Return bitboard of one piece
   Bitboard bitboard_piece(Piece piece) const {
-    return bitboards[piece.colour][piece.type];
+    return bitboards[piece.index()];
   }
 
   // Return bitboard of all pieces of one colour
