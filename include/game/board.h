@@ -5,7 +5,7 @@
 #include <string>
 
 #define SQUARE_NO 64
-#define PIECE_NO (PIECE_TYPE_NO * COLOUR_NO)
+#define PIECE_NO (static_cast<int>(PIECE_TYPE_NO) * static_cast<int>(COLOUR_NO))
 
 using Bitboard = uint64_t;
 
@@ -71,7 +71,7 @@ public:
 
   // Place piece on square 'to' for side_to_move
   UndoInfo make_drop(PieceType pt, Square to);
-  void undo_drop(PieceType pt, Square to, const UndoInfo &undoInfo);
+  void undo_drop(Square to, const UndoInfo &undoInfo);
 
   bool is_in_check() const;
   bool is_attacked(Square square, Colour colour) const;

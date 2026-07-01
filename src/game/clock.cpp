@@ -1,5 +1,5 @@
-#include "clock.h"
-#include "bughouse.h"
+#include "game/clock.h"
+#include "game/bughouse.h"
 
 void BughouseClock::set(int64_t base_ms, int inc_ms) {
   time_ms.fill(base_ms);

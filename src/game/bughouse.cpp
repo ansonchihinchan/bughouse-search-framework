@@ -1,5 +1,5 @@
-#include "bughouse.h"
-#include "movegen.h"
+#include "game/bughouse.h"
+#include "game/movegen.h"
 #include <iostream>
 
 // Default time control: 3 + 2

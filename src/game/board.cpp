@@ -1,5 +1,5 @@
-#include "board.h"
-#include "movegen.h"
+#include "game/board.h"
+#include "game/movegen.h"
 #include <bit>
 #include <cassert>
 #include <iostream>
@@ -401,7 +401,7 @@ UndoInfo Board::make_drop(PieceType pt, Square to) {
   return undoInfo;
 }
 
-void Board::undo_drop(PieceType pt, Square to, const UndoInfo &undoInfo) {
+void Board::undo_drop(Square to, const UndoInfo &undoInfo) {
   sideToMove = flip(sideToMove);
   if (sideToMove == BLACK)
     fullMove--;
@@ -413,7 +413,7 @@ void Board::undo_drop(PieceType pt, Square to, const UndoInfo &undoInfo) {
 
 bool Board::is_legal(Move move) const {
   Board copy = *this;
-  UndoInfo undoInfo = copy.make_move(move);
+  copy.make_move(move);
   Colour moved_side = flip(copy.sideToMove);
   Bitboard king_bb = copy.bitboards[make_piece(moved_side, KING).index()];
   if (!king_bb)

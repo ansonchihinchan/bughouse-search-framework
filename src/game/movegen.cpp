@@ -1,4 +1,4 @@
-#include "movegen.h"
+#include "game/movegen.h"
 
 #include <bit>
 
@@ -50,7 +50,7 @@ void add_pawn_moves(const Board &board, std::vector<Move> &moves) {
   Colour opponent = flip(player);
   Bitboard all_bb = board.bitboard_all();
   Bitboard opp_bb = board.bitboard_colour(opponent);
-  uint64_t player_pawns = board.bitboard_piece(make_piece(player, PAWN));
+  Bitboard player_pawns = board.bitboard_piece(make_piece(player, PAWN));
 
   int dir = (player == WHITE) ? 8 : -8;
   int start_rank = (player == WHITE) ? 1 : 6;
@@ -87,7 +87,7 @@ void add_pawn_moves(const Board &board, std::vector<Move> &moves) {
         continue;
       if (std::abs((cap_to & 7) - (from & 7)) != 1)
         continue; // wrap guard
-      bool is_capture = (opponent & (1ULL << cap_to)) != 0;
+      bool is_capture = (opp_bb & (1ULL << cap_to)) != 0;
       bool is_ep = (cap_to == board.enPassantSquare);
       if (is_capture || is_ep) {
         if (rank_of(cap_to) == promo_rank) {
@@ -110,7 +110,6 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   moves.reserve(SQUARE_NO);
 
   Colour player = board.sideToMove;
-  Colour opponent = flip(player);
   Bitboard player_bb = board.bitboard_colour(player);
   Bitboard all_bb = board.bitboard_all();
 
@@ -201,7 +200,6 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
 
 std::vector<Move> generate_drops(const Board &board, const Pocket &pocket) {
   std::vector<Move> moves;
-  Colour us = board.sideToMove;
   Bitboard empty = ~board.bitboard_all() & 0xFFFFFFFFFFFFFFFFULL;
 
   for (int pt = PAWN; pt <= QUEEN; pt++) {
@@ -221,4 +219,19 @@ std::vector<Move> generate_drops(const Board &board, const Pocket &pocket) {
     }
   }
   return moves;
+}
+
+uint64_t performance_test(Board &board, int depth, const Pocket *pocket) {
+  if (depth == 0)
+    return 1;
+  auto moves = generate_moves(board, pocket);
+  uint64_t nodes = 0;
+  for (auto move : moves) {
+    if (!board.is_legal(move))
+      continue;
+    UndoInfo undoInfo = board.make_move(move);
+    nodes += performance_test(board, depth - 1, pocket);
+    board.undo_move(move, undoInfo);
+  }
+  return nodes;
 }

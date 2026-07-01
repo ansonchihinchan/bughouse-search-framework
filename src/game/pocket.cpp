@@ -1,4 +1,4 @@
-#include "pocket.h"
+#include "game/pocket.h"
 #include <iostream>
 
 bool Pocket::empty() const {

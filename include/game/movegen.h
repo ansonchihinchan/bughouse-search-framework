@@ -9,3 +9,7 @@ std::vector<Move> generate_moves(const Board &board,
 
 // Generate only drop moves from the given reserve
 std::vector<Move> generate_drops(const Board &board, const Pocket &pocket);
+
+// Count nodes at depth
+uint64_t performance_test(Board &board, int depth,
+                          const Pocket *pocket = nullptr);

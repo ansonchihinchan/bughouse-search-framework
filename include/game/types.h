@@ -81,11 +81,6 @@ inline CastlingRights operator&(CastlingRights a, CastlingRights b) {
                                      static_cast<uint8_t>(b));
 }
 
-inline CastlingRights &operator|=(CastlingRights &a, CastlingRights b) {
-  a = a | b;
-  return a;
-}
-
 inline CastlingRights &operator&=(CastlingRights &a, CastlingRights b) {
   a = a & b;
   return a;
@@ -136,8 +131,10 @@ struct Move {
       return std::string(1, pt_chars[drop_pt]) + "@" + square_to_str(to);
     }
 
+    // e.g. "e2e4"
     std::string s = square_to_str(from) + square_to_str(to);
 
+    // e.g. "e7e8q"
     if (type == PROMOTE) {
       constexpr char pt_chars[] = " pnbrqk";
       s += pt_chars[promote_pt];
