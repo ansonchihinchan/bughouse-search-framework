@@ -6,9 +6,6 @@
 #define DEFAULT_TIME 3 * 60 * 1000
 #define DEFAULT_INCREMENT 2 * 1000
 
-#define PLAYER_NO 4
-#define BOARD_NO 2
-
 // Player 0 = White on board 0.  Captures go to player 2's reserve.
 // Player 1 = Black on board 0.  Captures go to player 3's reserve.
 // Player 2 = Black on board 1.  Captures go to player 0's reserve.

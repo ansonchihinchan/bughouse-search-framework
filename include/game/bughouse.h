@@ -7,6 +7,7 @@
 #include <array>
 
 #define PLAYER_NO 4
+#define BOARD_NO 2
 
 enum class GameResult { ONGOING, WHITE_WINS, BLACK_WINS, DRAW };
 
