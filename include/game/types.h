@@ -1,5 +1,6 @@
 #pragma once
 
+#include <assert.h>
 #include <cstdint>
 #include <string>
 
@@ -20,23 +21,35 @@ enum PieceType : uint8_t {
   ROOK,
   QUEEN,
   KING,
-  PIECE_TYPE_NO = 6
+  PIECE_TYPE_NO = 7
 };
 
 struct Piece {
   PieceType type = NO_PIECE_TYPE;
   Colour colour = WHITE;
 
-  constexpr bool empty() const { return type == NO_PIECE_TYPE; }
+  constexpr bool is_empty() const { return type == NO_PIECE_TYPE; }
+
+  constexpr int index() const {
+    assert(!is_empty());
+    return static_cast<int>(colour) * (PIECE_TYPE_NO - 1) +
+           static_cast<int>(type);
+  }
+
+  constexpr PieceType type_of(const Piece &p) { return p.type; }
+
+  constexpr Colour colour_of(const Piece &p) { return p.colour; }
 
   constexpr char to_char() const {
-    constexpr char piece_chars[COLOUR_NO][PIECE_TYPE_NO + 1] = {
+    constexpr char piece_chars[COLOUR_NO][PIECE_TYPE_NO] = {
         {' ', 'P', 'N', 'B', 'R', 'Q', 'K'},
         {' ', 'p', 'n', 'b', 'r', 'q', 'k'}};
 
     return piece_chars[static_cast<int>(colour)][static_cast<int>(type)];
   }
 };
+
+constexpr Piece make_piece(Colour c, PieceType pt) { return Piece{pt, c}; }
 
 enum MoveType { NORMAL, PROMOTE, EN_PASSANT, CASTLE, DROP };
 
@@ -52,6 +65,31 @@ enum CastlingRights : uint8_t {
 
   ANY_CASTLING = WHITE_CASTLING | BLACK_CASTLING
 };
+
+inline CastlingRights operator|(CastlingRights a, CastlingRights b) {
+  return static_cast<CastlingRights>(static_cast<uint8_t>(a) |
+                                     static_cast<uint8_t>(b));
+}
+
+inline CastlingRights &operator|=(CastlingRights &a, CastlingRights b) {
+  a = a | b;
+  return a;
+}
+
+inline CastlingRights operator&(CastlingRights a, CastlingRights b) {
+  return static_cast<CastlingRights>(static_cast<uint8_t>(a) &
+                                     static_cast<uint8_t>(b));
+}
+
+inline CastlingRights &operator|=(CastlingRights &a, CastlingRights b) {
+  a = a | b;
+  return a;
+}
+
+inline CastlingRights &operator&=(CastlingRights &a, CastlingRights b) {
+  a = a & b;
+  return a;
+}
 
 inline std::string square_to_str(Square square) {
   return std::string() + char('a' + (square % 8)) + char('1' + (square / 8));
