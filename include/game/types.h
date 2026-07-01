@@ -127,7 +127,7 @@ struct Move {
     return from == move.from && to == move.to && type == move.type &&
            promote_pt == move.promote_pt && drop_pt == move.drop_pt;
   }
-  bool operator!=(const Move &o) const { return !(*this == o); }
+  bool operator!=(const Move &move) const { return !(*this == move); }
 
   std::string to_string() const {
     if (type == DROP) {
@@ -146,5 +146,3 @@ struct Move {
     return s;
   }
 };
-
-constexpr Move EMPTY_MOVE{};
