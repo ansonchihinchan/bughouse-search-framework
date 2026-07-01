@@ -313,7 +313,7 @@ UndoInfo Board::make_move(Move move) {
     move_piece(rook_from, rook_to);
   } else {
     // Capture
-    if (squares[move.to].is_empty()) {
+    if (!squares[move.to].is_empty()) {
       remove_piece(move.to);
       halfMove = 0;
     }
@@ -370,7 +370,7 @@ void Board::undo_move(Move move, const UndoInfo &undoInfo) {
     } else {
       move_piece(move.to, move.from);
     }
-    if (undoInfo.captured.is_empty())
+    if (!undoInfo.captured.is_empty())
       put_piece(undoInfo.captured, move.to);
     if (move.type == EN_PASSANT) {
       Square ep_cap = to_square(file_of(move.to), rank_of(move.from));

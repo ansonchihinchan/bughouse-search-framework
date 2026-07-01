@@ -120,7 +120,7 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   while (knights) {
     int from = __builtin_ctzll(knights);
     knights &= knights - 1;
-    Bitboard attack = Attack::KnightAttacks[from] & ~player;
+    Bitboard attack = Attack::KnightAttacks[from] & ~player_bb;
     while (attack) {
       int to = __builtin_ctzll(attack);
       attack &= attack - 1;

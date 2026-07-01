@@ -33,7 +33,7 @@ struct Piece {
   constexpr int index() const {
     assert(!is_empty());
     return static_cast<int>(colour) * (PIECE_TYPE_NO - 1) +
-           static_cast<int>(type);
+           static_cast<int>(type) - 1;
   }
 
   constexpr PieceType type_of(const Piece &p) { return p.type; }

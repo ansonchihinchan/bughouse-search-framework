@@ -99,14 +99,14 @@ GameResult BughouseState::result() const {
 }
 
 void BughouseState::print() const {
-  std::cout << "=== Board 0 (players 0=W, 1=B) ===\n";
+  std::cout << "=== Board A (players 0=W, 1=B) ===\n";
   boards[0].print();
   std::cout << "Pocket 0 (White): ";
   pockets[0].print();
   std::cout << "Pocket 1 (Black): ";
   pockets[1].print();
 
-  std::cout << "\n=== Board 1 (players 3=W, 2=B) ===\n";
+  std::cout << "\n=== Board B (players 3=W, 2=B) ===\n";
   boards[1].print();
   std::cout << "Pocket 3 (White): ";
   pockets[3].print();
