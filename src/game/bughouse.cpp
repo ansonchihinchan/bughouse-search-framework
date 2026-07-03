@@ -56,7 +56,7 @@ bool BughouseState::apply_move(int player_id, Move move) {
     // Validate the drop doesn't leave own king in check
     Board copy = board;
     copy.make_drop(move.drop_pt, move.to);
-    Square ksq = static_cast<Square>(__builtin_ctzll(
+    Square ksq = static_cast<Square>(std::countr_zero(
         copy.bitboards[make_piece(player_colour, KING).index()]));
     if (copy.is_attacked(ksq, flip(board.sideToMove)))
       return false;
@@ -95,15 +95,17 @@ GameResult BughouseState::result() const {
   if (clock.any_flagged()) {
     for (int i = 0; i < PLAYER_NO; i++) {
       if (clock.flagged(i)) {
-        return (i == 0 || i == 3) ? GameResult::BLACK_WINS
-                                  : GameResult::WHITE_WINS;
+        return (i == 0 || i == 2) ? GameResult::TEAM_B_WINS
+                                  : GameResult::TEAM_A_WINS;
       }
     }
   }
   for (int b = 0; b < BOARD_NO; b++) {
     if (boards[b].is_checkmate()) {
       Colour loser = boards[b].sideToMove;
-      return (loser == WHITE) ? GameResult::BLACK_WINS : GameResult::WHITE_WINS;
+      int player_id = (b == 0) ? loser : (3 - loser);
+      return (player_id == 0 || player_id == 2) ? GameResult::TEAM_B_WINS
+                                                : GameResult::TEAM_A_WINS;
     }
   }
   return GameResult::ONGOING;

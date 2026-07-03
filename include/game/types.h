@@ -30,6 +30,14 @@ struct Piece {
 
   constexpr bool is_empty() const { return type == NO_PIECE_TYPE; }
 
+  constexpr bool operator==(const Piece &other) const {
+    return type == other.type && colour == other.colour;
+  }
+
+  constexpr bool operator!=(const Piece &other) const {
+    return !(*this == other);
+  }
+
   constexpr int index() const {
     assert(!is_empty());
     return static_cast<int>(colour) * (PIECE_TYPE_NO - 1) +
@@ -115,7 +123,6 @@ struct Move {
   }
 
   bool is_drop() const { return type == DROP; }
-  bool is_capture() const { return type == EN_PASSANT; }
   bool is_none() const { return from == -1 && type != DROP; }
 
   bool operator==(const Move &move) const {

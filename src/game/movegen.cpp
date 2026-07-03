@@ -58,7 +58,7 @@ void add_pawn_moves(const Board &board, std::vector<Move> &moves) {
 
   Bitboard pawns = player_pawns;
   while (pawns) {
-    int from = __builtin_ctzll(pawns);
+    int from = std::countr_zero(pawns);
     pawns &= pawns - 1;
     int to = from + dir;
     if (to < 0 || to >= 64)
@@ -118,11 +118,11 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   // Knights
   Bitboard knights = board.bitboard_piece(make_piece(player, KNIGHT));
   while (knights) {
-    int from = __builtin_ctzll(knights);
+    int from = std::countr_zero(knights);
     knights &= knights - 1;
     Bitboard attack = Attack::KnightAttacks[from] & ~player_bb;
     while (attack) {
-      int to = __builtin_ctzll(attack);
+      int to = std::countr_zero(attack);
       attack &= attack - 1;
       moves.push_back(Move::normal(from, to));
     }
@@ -132,12 +132,12 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   Bitboard diagonals = board.bitboard_piece(make_piece(player, BISHOP)) |
                        board.bitboard_piece(make_piece(player, QUEEN));
   while (diagonals) {
-    int from = __builtin_ctzll(diagonals);
+    int from = std::countr_zero(diagonals);
     diagonals &= diagonals - 1;
     Bitboard attack =
         Attack::sliding(from, all_bb, Attack::DIAG_DIRS, 4) & ~player_bb;
     while (attack) {
-      int to = __builtin_ctzll(attack);
+      int to = std::countr_zero(attack);
       attack &= attack - 1;
       moves.push_back(Move::normal(from, to));
     }
@@ -147,12 +147,12 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   Bitboard orthogonals = board.bitboard_piece(make_piece(player, ROOK)) |
                          board.bitboard_piece(make_piece(player, QUEEN));
   while (orthogonals) {
-    int from = __builtin_ctzll(orthogonals);
+    int from = std::countr_zero(orthogonals);
     orthogonals &= orthogonals - 1;
     Bitboard attack =
         Attack::sliding(from, all_bb, Attack::ORTHO_DIRS, 4) & ~player_bb;
     while (attack) {
-      int to = __builtin_ctzll(attack);
+      int to = std::countr_zero(attack);
       attack &= attack - 1;
       moves.push_back(Move::normal(from, to));
     }
@@ -161,10 +161,10 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   // King
   Bitboard king = board.bitboard_piece(make_piece(player, KING));
   if (king) {
-    int from = __builtin_ctzll(king);
+    int from = std::countr_zero(king);
     Bitboard attack = Attack::KingAttacks[from] & ~player_bb;
     while (attack) {
-      int to = __builtin_ctzll(attack);
+      int to = std::countr_zero(attack);
       attack &= attack - 1;
       moves.push_back(Move::normal(from, to));
     }
@@ -172,19 +172,29 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
     // Castling
     if (player == WHITE) {
       if ((board.castlingRights & WHITE_OO) && !(all_bb & 0x60ULL) &&
-          !board.is_attacked(4, BLACK) && !board.is_attacked(5, BLACK))
+          board.piece_on(7) == make_piece(WHITE, ROOK) &&
+          !board.is_attacked(4, BLACK) && !board.is_attacked(5, BLACK) &&
+          !board.is_attacked(6, BLACK))
         moves.push_back(Move::castling(4, 6));
+
       if ((board.castlingRights & WHITE_OOO) && !(all_bb & 0xEULL) &&
-          !board.is_attacked(4, BLACK) && !board.is_attacked(3, BLACK))
+          board.piece_on(0) == make_piece(WHITE, ROOK) &&
+          !board.is_attacked(4, BLACK) && !board.is_attacked(3, BLACK) &&
+          !board.is_attacked(2, BLACK))
         moves.push_back(Move::castling(4, 2));
     } else {
       if ((board.castlingRights & BLACK_OO) &&
-          !(all_bb & 0x6000000000000000ULL) && !board.is_attacked(60, WHITE) &&
-          !board.is_attacked(61, WHITE))
+          !(all_bb & 0x6000000000000000ULL) &&
+          board.piece_on(63) == make_piece(BLACK, ROOK) &&
+          !board.is_attacked(60, WHITE) && !board.is_attacked(61, WHITE) &&
+          !board.is_attacked(62, WHITE))
         moves.push_back(Move::castling(60, 62));
+
       if ((board.castlingRights & BLACK_OOO) &&
-          !(all_bb & 0xE00000000000000ULL) && !board.is_attacked(60, WHITE) &&
-          !board.is_attacked(59, WHITE))
+          !(all_bb & 0xE00000000000000ULL) &&
+          board.piece_on(56) == make_piece(BLACK, ROOK) &&
+          !board.is_attacked(60, WHITE) && !board.is_attacked(59, WHITE) &&
+          !board.is_attacked(58, WHITE))
         moves.push_back(Move::castling(60, 58));
     }
   }
@@ -213,7 +223,7 @@ std::vector<Move> generate_drops(const Board &board, const Pocket &pocket) {
     }
     Bitboard t = targets;
     while (t) {
-      int square = __builtin_ctzll(t);
+      int square = std::countr_zero(t);
       t &= t - 1;
       moves.push_back(Move::drop(static_cast<PieceType>(pt), square));
     }
@@ -221,7 +231,7 @@ std::vector<Move> generate_drops(const Board &board, const Pocket &pocket) {
   return moves;
 }
 
-uint64_t performance_test(Board &board, int depth, const Pocket *pocket) {
+uint64_t perft(Board &board, int depth, const Pocket *pocket) {
   if (depth == 0)
     return 1;
   auto moves = generate_moves(board, pocket);
@@ -229,9 +239,16 @@ uint64_t performance_test(Board &board, int depth, const Pocket *pocket) {
   for (auto move : moves) {
     if (!board.is_legal(move))
       continue;
-    UndoInfo undoInfo = board.make_move(move);
-    nodes += performance_test(board, depth - 1, pocket);
-    board.undo_move(move, undoInfo);
+
+    if (move.is_drop()) {
+      UndoInfo undoInfo = board.make_drop(move.drop_pt, move.to);
+      nodes += perft(board, depth - 1, pocket);
+      board.undo_drop(move.to, undoInfo);
+    } else {
+      UndoInfo undoInfo = board.make_move(move);
+      nodes += perft(board, depth - 1, pocket);
+      board.undo_move(move, undoInfo);
+    }
   }
   return nodes;
 }

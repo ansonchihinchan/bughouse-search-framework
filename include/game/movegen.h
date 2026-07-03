@@ -11,5 +11,4 @@ std::vector<Move> generate_moves(const Board &board,
 std::vector<Move> generate_drops(const Board &board, const Pocket &pocket);
 
 // Count nodes at depth
-uint64_t performance_test(Board &board, int depth,
-                          const Pocket *pocket = nullptr);
+uint64_t perft(Board &board, int depth, const Pocket *pocket = nullptr);

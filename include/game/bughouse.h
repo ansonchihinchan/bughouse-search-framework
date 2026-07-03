@@ -9,7 +9,7 @@
 #define PLAYER_NO 4
 #define BOARD_NO 2
 
-enum class GameResult { ONGOING, WHITE_WINS, BLACK_WINS, DRAW };
+enum class GameResult { ONGOING, TEAM_A_WINS, TEAM_B_WINS, DRAW };
 
 struct BughouseState {
   std::array<Board, COLOUR_NO> boards;

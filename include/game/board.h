@@ -76,6 +76,9 @@ public:
   bool is_in_check() const;
   bool is_attacked(Square square, Colour colour) const;
   bool is_legal(Move move) const;
+  bool is_capture(Move move) const {
+    return move.type == EN_PASSANT || !piece_on(move.to).is_empty();
+  }
 
   bool is_checkmate() const;
   bool is_stalemate() const;
