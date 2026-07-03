@@ -71,8 +71,8 @@ int main() {
       ss >> depth;
       Board board;
       board.reset();
-      uint64_t nodes = performance_test(board, depth);
-      std::cout << "performance_test(" << depth << ") = " << nodes << '\n';
+      uint64_t nodes = perft(board, depth);
+      std::cout << "perft(" << depth << ") = " << nodes << '\n';
       continue;
     }
 
@@ -110,11 +110,11 @@ int main() {
     game.print();
 
     switch (game.result()) {
-    case GameResult::WHITE_WINS:
-      std::cout << "White wins.\n";
+    case GameResult::TEAM_A_WINS:
+      std::cout << "Team A wins.\n";
       break;
-    case GameResult::BLACK_WINS:
-      std::cout << "Black wins.\n";
+    case GameResult::TEAM_B_WINS:
+      std::cout << "Team B wins.\n";
       break;
     case GameResult::DRAW:
       std::cout << "Draw.\n";

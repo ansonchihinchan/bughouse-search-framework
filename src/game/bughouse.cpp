@@ -50,7 +50,7 @@ bool BughouseState::apply_move(int player_id, Move move) {
     // Validate the drop doesn't leave own king in check
     Board copy = board;
     copy.make_drop(move.drop_pt, move.to);
-    Square ksq = static_cast<Square>(__builtin_ctzll(
+    Square ksq = static_cast<Square>(std::countr_zero(
         copy.bitboards[make_piece(player_colour, KING).index()]));
     if (copy.is_attacked(ksq, flip(board.sideToMove)))
       return false;
@@ -84,29 +84,31 @@ GameResult BughouseState::result() const {
   if (clock.any_flagged()) {
     for (int i = 0; i < PLAYER_NO; i++) {
       if (clock.flagged(i)) {
-        return (i == 0 || i == 3) ? GameResult::BLACK_WINS
-                                  : GameResult::WHITE_WINS;
+        return (i == 0 || i == 2) ? GameResult::TEAM_B_WINS
+                                  : GameResult::TEAM_A_WINS;
       }
     }
   }
   for (int b = 0; b < BOARD_NO; b++) {
     if (boards[b].is_checkmate()) {
       Colour loser = boards[b].sideToMove;
-      return (loser == WHITE) ? GameResult::BLACK_WINS : GameResult::WHITE_WINS;
+      int player_id = (b == 0) ? loser : (3 - loser);
+      return (player_id == 0 || player_id == 2) ? GameResult::TEAM_B_WINS
+                                                : GameResult::TEAM_A_WINS;
     }
   }
   return GameResult::ONGOING;
 }
 
 void BughouseState::print() const {
-  std::cout << "=== Board 0 (players 0=W, 1=B) ===\n";
+  std::cout << "=== Board A (players 0=W, 1=B) ===\n";
   boards[0].print();
   std::cout << "Pocket 0 (White): ";
   pockets[0].print();
   std::cout << "Pocket 1 (Black): ";
   pockets[1].print();
 
-  std::cout << "\n=== Board 1 (players 3=W, 2=B) ===\n";
+  std::cout << "\n=== Board B (players 3=W, 2=B) ===\n";
   boards[1].print();
   std::cout << "Pocket 3 (White): ";
   pockets[3].print();

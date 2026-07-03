@@ -3,6 +3,7 @@
 #include <bit>
 #include <cassert>
 #include <iostream>
+#include <mutex>
 #include <random>
 #include <sstream>
 
@@ -16,6 +17,8 @@ uint64_t pieceSquare[PIECE_NO][SQUARE_NO];
 uint64_t side;
 uint64_t castlingRights[CASTLING_RIGHTS_NO];
 uint64_t enPassantFile[ENPASSANT_FILE_NO];
+
+std::once_flag init_flag;
 
 void init() {
   std::mt19937_64 rng(0xAC0123456789ULL);
@@ -32,6 +35,9 @@ void init() {
     enPassantFile[epf] = rng();
   }
 }
+
+void ensure_init() { std::call_once(init_flag, init); }
+
 } // namespace Zobrist
 
 Board::Board() { reset(); }
@@ -72,33 +78,75 @@ uint64_t Board::bitboard_all() const {
 }
 
 bool Board::load_fen(const std::string &fen) {
-  squares.fill(Piece{});
-  bitboards.fill(0);
-  hash = 0;
+  Zobrist::ensure_init();
 
   std::istringstream ss(fen);
   std::string board_str, side_str, castling_str, ep_str;
-  ss >> board_str >> side_str >> castling_str >> ep_str >> halfMove >> fullMove;
+  int hm = 0, fm = 1;
 
-  int sq_idx = a8;
+  if (!(ss >> board_str >> side_str >> castling_str >> ep_str >> hm >> fm))
+    return false;
+
+  if (side_str != "w" && side_str != "b")
+    return false;
+
+  if (castling_str != "-")
+    for (char c : castling_str)
+      if (c != 'K' && c != 'Q' && c != 'k' && c != 'q')
+        return false;
+
+  if (ep_str != "-" && (ep_str.size() != 2 || ep_str[0] < 'a' ||
+                        ep_str[0] > 'h' || ep_str[1] < '1' || ep_str[1] > '8'))
+    return false;
+
+  std::array<Piece, SQUARE_NO> new_squares{};
+  std::array<Bitboard, PIECE_NO> new_bitboards{};
+  uint64_t new_hash = 0;
+  int rank = 7, file = 0, white_kings = 0, black_kings = 0;
+
   for (char c : board_str) {
     if (c == '/') {
-      sq_idx -= 16;
+      if (file != 8)
+        return false;
+      rank--;
+      file = 0;
+      if (rank < 0)
+        return false;
       continue;
     }
     if (c >= '1' && c <= '8') {
-      sq_idx += c - '0';
+      file += c - '0';
+      if (file > 8)
+        return false;
       continue;
     }
-
     static const std::string piece_chars = "PNBRQKpnbrqk";
     size_t idx = piece_chars.find(c);
-    if (idx == std::string::npos)
+    if (idx == std::string::npos || file >= 8)
       return false;
-    Colour color = (idx < 6) ? WHITE : BLACK;
+
+    Colour colour = (idx < 6) ? WHITE : BLACK;
     PieceType pt = static_cast<PieceType>((idx % 6) + 1);
-    put_piece(make_piece(color, pt), sq_idx++);
+    Piece piece = make_piece(colour, pt);
+    Square sq = to_square(file, rank);
+
+    new_squares[sq] = piece;
+    new_bitboards[piece.index()] |= 1ULL << sq;
+    new_hash ^= Zobrist::pieceSquare[piece.index()][sq];
+
+    if (pt == KING)
+      (colour == WHITE ? white_kings : black_kings)++;
+
+    file++;
   }
+  if (rank != 0 || file != 8 || white_kings != 1 || black_kings != 1)
+    return false;
+
+  squares = new_squares;
+  bitboards = new_bitboards;
+  hash = new_hash;
+  halfMove = hm;
+  fullMove = fm;
 
   sideToMove = (side_str == "b") ? BLACK : WHITE;
   if (sideToMove == BLACK)
@@ -122,7 +170,6 @@ bool Board::load_fen(const std::string &fen) {
     enPassantSquare = to_square(ep_str[0] - 'a', ep_str[1] - '1');
     hash ^= Zobrist::enPassantFile[file_of(enPassantSquare)];
   }
-
   return true;
 }
 
@@ -250,7 +297,7 @@ bool Board::is_in_check() const {
   Bitboard king_bb = bitboards[make_piece(sideToMove, KING).index()];
   if (!king_bb)
     return false;
-  Square ksq = static_cast<Square>(__builtin_ctzll(king_bb));
+  Square ksq = static_cast<Square>(std::countr_zero(king_bb));
   return is_attacked(ksq, flip(sideToMove));
 }
 
@@ -413,12 +460,19 @@ void Board::undo_drop(Square to, const UndoInfo &undoInfo) {
 
 bool Board::is_legal(Move move) const {
   Board copy = *this;
-  copy.make_move(move);
-  Colour moved_side = flip(copy.sideToMove);
+  Colour moved_side = sideToMove;
+
+  if (move.is_drop()) {
+    copy.make_drop(move.drop_pt, move.to);
+  } else {
+    copy.make_move(move);
+  }
+
   Bitboard king_bb = copy.bitboards[make_piece(moved_side, KING).index()];
-  if (!king_bb)
+  if (!king_bb) {
     return false;
-  Square ksq = static_cast<Square>(__builtin_ctzll(king_bb));
+  }
+  Square ksq = static_cast<Square>(std::countr_zero(king_bb));
   return !copy.is_attacked(ksq, copy.sideToMove);
 }
 
@@ -456,4 +510,4 @@ void Board::print() const {
   std::cout << "FEN: " << to_fen() << '\n';
 }
 
-void Board::init_zobrist() { Zobrist::init(); }
+void Board::init_zobrist() { Zobrist::ensure_init(); }
