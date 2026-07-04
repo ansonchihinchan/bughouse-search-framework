@@ -389,7 +389,14 @@ UndoInfo Board::make_move(Move move) {
   }
 
   update_castling_rights(move.from, move.to);
+
   halfMove++;
+  // TODO: fix half move increment logic
+  // if (movedPiece.type == PAWN || !undoInfo.captured.is_empty() ||
+  //     move.type == EN_PASSANT)
+  //   halfMove = 0;
+  // else
+  //   ++halfMove;
 
   sideToMove = flip(sideToMove);
   hash ^= Zobrist::side;
@@ -413,7 +420,7 @@ void Board::undo_move(Move move, const UndoInfo &undoInfo) {
   } else {
     if (move.type == PROMOTE) {
       remove_piece(move.to);
-      put_piece(make_piece(sideToMove, PAWN), move.to);
+      put_piece(make_piece(sideToMove, PAWN), move.from);
     } else {
       move_piece(move.to, move.from);
     }

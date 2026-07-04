@@ -11,6 +11,7 @@ using Bitboard = uint64_t;
 
 struct UndoInfo {
   Move move;
+  // TODO: Piece moved;
   Piece captured;
 
   Square enPassantSquare = -1;
