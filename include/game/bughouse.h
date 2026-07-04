@@ -12,7 +12,7 @@
 enum class GameResult { ONGOING, TEAM_A_WINS, TEAM_B_WINS, DRAW };
 
 struct BughouseState {
-  std::array<Board, COLOUR_NO> boards;
+  std::array<Board, BOARD_NO> boards;
   std::array<Pocket, PLAYER_NO> pockets;
   BughouseClock clock;
 
