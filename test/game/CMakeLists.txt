@@ -4,7 +4,9 @@ include(Catch)
 
 add_executable(game_tests
     test_board.cpp
+    test_bughouse.cpp
     test_clock.cpp
+    test_movegen.cpp
     test_pocket.cpp
     test_types.cpp
 )

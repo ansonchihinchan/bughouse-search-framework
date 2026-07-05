@@ -345,6 +345,8 @@ UndoInfo Board::make_move(Move move) {
   UndoInfo undoInfo{move,           squares[move.to], enPassantSquare,
                     castlingRights, halfMove,         hash};
 
+  Piece movedPiece = squares[move.from];
+
   if (enPassantSquare != -1) {
     hash ^= Zobrist::enPassantFile[file_of(enPassantSquare)];
     enPassantSquare = -1;
@@ -390,13 +392,11 @@ UndoInfo Board::make_move(Move move) {
 
   update_castling_rights(move.from, move.to);
 
-  halfMove++;
-  // TODO: fix half move increment logic
-  // if (movedPiece.type == PAWN || !undoInfo.captured.is_empty() ||
-  //     move.type == EN_PASSANT)
-  //   halfMove = 0;
-  // else
-  //   ++halfMove;
+  if (movedPiece.type == PAWN || !undoInfo.captured.is_empty() ||
+      move.type == EN_PASSANT)
+    halfMove = 0;
+  else
+    ++halfMove;
 
   sideToMove = flip(sideToMove);
   hash ^= Zobrist::side;
