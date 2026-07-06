@@ -2,7 +2,7 @@
 
 #include <bit>
 
-namespace Attack {
+namespace {
 // Precomputed knight/king attack tables
 uint64_t KnightAttacks[SQUARE_NO];
 uint64_t KingAttacks[SQUARE_NO];
@@ -102,10 +102,10 @@ void add_pawn_moves(const Board &board, std::vector<Move> &moves) {
     }
   }
 }
-} // namespace Attack
+} // namespace
 
 std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
-  Attack::init_tables();
+  init_tables();
   std::vector<Move> moves;
   moves.reserve(SQUARE_NO);
 
@@ -113,14 +113,14 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   Bitboard player_bb = board.bitboard_colour(player);
   Bitboard all_bb = board.bitboard_all();
 
-  Attack::add_pawn_moves(board, moves);
+  add_pawn_moves(board, moves);
 
   // Knights
   Bitboard knights = board.bitboard_piece(make_piece(player, KNIGHT));
   while (knights) {
     int from = std::countr_zero(knights);
     knights &= knights - 1;
-    Bitboard attack = Attack::KnightAttacks[from] & ~player_bb;
+    Bitboard attack = KnightAttacks[from] & ~player_bb;
     while (attack) {
       int to = std::countr_zero(attack);
       attack &= attack - 1;
@@ -134,8 +134,7 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   while (diagonals) {
     int from = std::countr_zero(diagonals);
     diagonals &= diagonals - 1;
-    Bitboard attack =
-        Attack::sliding(from, all_bb, Attack::DIAG_DIRS, 4) & ~player_bb;
+    Bitboard attack = sliding(from, all_bb, DIAG_DIRS, 4) & ~player_bb;
     while (attack) {
       int to = std::countr_zero(attack);
       attack &= attack - 1;
@@ -149,8 +148,7 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   while (orthogonals) {
     int from = std::countr_zero(orthogonals);
     orthogonals &= orthogonals - 1;
-    Bitboard attack =
-        Attack::sliding(from, all_bb, Attack::ORTHO_DIRS, 4) & ~player_bb;
+    Bitboard attack = sliding(from, all_bb, ORTHO_DIRS, 4) & ~player_bb;
     while (attack) {
       int to = std::countr_zero(attack);
       attack &= attack - 1;
@@ -162,7 +160,7 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   Bitboard king = board.bitboard_piece(make_piece(player, KING));
   if (king) {
     int from = std::countr_zero(king);
-    Bitboard attack = Attack::KingAttacks[from] & ~player_bb;
+    Bitboard attack = KingAttacks[from] & ~player_bb;
     while (attack) {
       int to = std::countr_zero(attack);
       attack &= attack - 1;
