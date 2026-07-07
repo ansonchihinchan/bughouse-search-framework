@@ -14,7 +14,7 @@ protected:
                            std::stop_token stop_token) override;
 
   // PVSearch/NullMoveSearch overrides
-  virtual int alpha_beta(const BughousePosition &position,
+  virtual int alpha_beta(BughousePosition &position,
                          const SearchContext &context, int depth, int alpha,
                          int beta, std::stop_token stop_token);
 

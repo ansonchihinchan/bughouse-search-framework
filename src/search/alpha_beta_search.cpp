@@ -15,7 +15,7 @@ void AlphaBetaSearch::order_moves(const BughousePosition &position,
                    });
 }
 
-int AlphaBetaSearch::alpha_beta(const BughousePosition &position,
+int AlphaBetaSearch::alpha_beta(BughousePosition &position,
                                 const SearchContext &context, int depth,
                                 int alpha, int beta,
                                 std::stop_token stop_token) {
@@ -28,14 +28,13 @@ int AlphaBetaSearch::alpha_beta(const BughousePosition &position,
     return leaf_eval(position, context);
   order_moves(position, context, moves);
 
-  BughousePosition working = position;
   int best = -INF_SCORE;
   for (Move move : moves) {
-    BughouseUndo undo = apply_move(working, context.root_player, move);
+    BughouseUndo undo = apply_move(position, context.root_player, move);
     int score = -alpha_beta(
         position, make_context(context.clock, next_player(context.root_player)),
         depth - 1, -beta, -alpha, stop_token);
-    undo_move(working, context.root_player, move, undo);
+    undo_move(position, context.root_player, move, undo);
 
     best = std::max(best, score);
     alpha = std::max(alpha, best);
@@ -62,7 +61,7 @@ SearchResult AlphaBetaSearch::search_root(const BughousePosition &position,
   for (Move move : moves) {
     BughouseUndo undo = apply_move(working, context.root_player, move);
     int score = -alpha_beta(
-        position, make_context(context.clock, next_player(context.root_player)),
+        working, make_context(context.clock, next_player(context.root_player)),
         depth - 1, -beta, -alpha, stop_token);
     undo_move(working, context.root_player, move, undo);
 
