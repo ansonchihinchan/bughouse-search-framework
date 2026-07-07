@@ -11,4 +11,5 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 enable_testing()
 
 add_subdirectory(src/game)
+add_subdirectory(src/search)
 add_subdirectory(test/game)

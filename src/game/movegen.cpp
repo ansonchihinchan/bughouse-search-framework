@@ -2,7 +2,7 @@
 
 #include <bit>
 
-namespace Attack {
+namespace {
 // Precomputed knight/king attack tables
 uint64_t KnightAttacks[SQUARE_NO];
 uint64_t KingAttacks[SQUARE_NO];
@@ -102,10 +102,11 @@ void add_pawn_moves(const Board &board, std::vector<Move> &moves) {
     }
   }
 }
-} // namespace Attack
+} // namespace
 
-std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
-  Attack::init_tables();
+std::vector<Move> generate_pseudo_legal_moves(const Board &board,
+                                              const Pocket *pocket) {
+  init_tables();
   std::vector<Move> moves;
   moves.reserve(SQUARE_NO);
 
@@ -113,14 +114,14 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   Bitboard player_bb = board.bitboard_colour(player);
   Bitboard all_bb = board.bitboard_all();
 
-  Attack::add_pawn_moves(board, moves);
+  add_pawn_moves(board, moves);
 
   // Knights
   Bitboard knights = board.bitboard_piece(make_piece(player, KNIGHT));
   while (knights) {
     int from = std::countr_zero(knights);
     knights &= knights - 1;
-    Bitboard attack = Attack::KnightAttacks[from] & ~player_bb;
+    Bitboard attack = KnightAttacks[from] & ~player_bb;
     while (attack) {
       int to = std::countr_zero(attack);
       attack &= attack - 1;
@@ -134,8 +135,7 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   while (diagonals) {
     int from = std::countr_zero(diagonals);
     diagonals &= diagonals - 1;
-    Bitboard attack =
-        Attack::sliding(from, all_bb, Attack::DIAG_DIRS, 4) & ~player_bb;
+    Bitboard attack = sliding(from, all_bb, DIAG_DIRS, 4) & ~player_bb;
     while (attack) {
       int to = std::countr_zero(attack);
       attack &= attack - 1;
@@ -149,8 +149,7 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   while (orthogonals) {
     int from = std::countr_zero(orthogonals);
     orthogonals &= orthogonals - 1;
-    Bitboard attack =
-        Attack::sliding(from, all_bb, Attack::ORTHO_DIRS, 4) & ~player_bb;
+    Bitboard attack = sliding(from, all_bb, ORTHO_DIRS, 4) & ~player_bb;
     while (attack) {
       int to = std::countr_zero(attack);
       attack &= attack - 1;
@@ -162,7 +161,7 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
   Bitboard king = board.bitboard_piece(make_piece(player, KING));
   if (king) {
     int from = std::countr_zero(king);
-    Bitboard attack = Attack::KingAttacks[from] & ~player_bb;
+    Bitboard attack = KingAttacks[from] & ~player_bb;
     while (attack) {
       int to = std::countr_zero(attack);
       attack &= attack - 1;
@@ -201,14 +200,27 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
 
   // Drop moves
   if (pocket) {
-    auto drops = generate_drops(board, *pocket);
+    auto drops = generate_drop_moves(board, *pocket);
     moves.insert(moves.end(), drops.begin(), drops.end());
   }
 
   return moves;
 }
 
-std::vector<Move> generate_drops(const Board &board, const Pocket &pocket) {
+std::vector<Move> generate_legal_moves(const BughousePosition &position,
+                                       PlayerId player) {
+  const Board &board = position.boards[board_of(player)];
+
+  auto moves =
+      generate_pseudo_legal_moves(board, &position.pockets[to_int(player)]);
+
+  std::erase_if(moves, [&](const Move &move) { return !board.is_legal(move); });
+
+  return moves;
+}
+
+std::vector<Move> generate_drop_moves(const Board &board,
+                                      const Pocket &pocket) {
   std::vector<Move> moves;
   Bitboard empty = ~board.bitboard_all() & 0xFFFFFFFFFFFFFFFFULL;
 
@@ -234,20 +246,20 @@ std::vector<Move> generate_drops(const Board &board, const Pocket &pocket) {
 uint64_t perft(Board &board, int depth, const Pocket *pocket) {
   if (depth == 0)
     return 1;
-  auto moves = generate_moves(board, pocket);
+  auto moves = generate_pseudo_legal_moves(board, pocket);
   uint64_t nodes = 0;
   for (auto move : moves) {
     if (!board.is_legal(move))
       continue;
 
     if (move.is_drop()) {
-      UndoInfo undoInfo = board.make_drop(move.drop_pt, move.to);
+      BoardUndo undo = board.make_drop(move.drop_pt, move.to);
       nodes += perft(board, depth - 1, pocket);
-      board.undo_drop(move.to, undoInfo);
+      board.undo_drop(move.to, undo);
     } else {
-      UndoInfo undoInfo = board.make_move(move);
+      BoardUndo undo = board.make_move(move);
       nodes += perft(board, depth - 1, pocket);
-      board.undo_move(move, undoInfo);
+      board.undo_move(move, undo);
     }
   }
   return nodes;
