@@ -1,6 +1,6 @@
 #include "game/bughouse.h"
 #include "game/movegen.h"
-#include <algorithm>
+#include <cassert>
 #include <iostream>
 
 // Default time control: 3 + 2
@@ -12,97 +12,83 @@
 // Player 2 = Black on board 1.  Captures go to player 0's reserve.
 // Player 3 = White on board 1.  Captures go to player 1's reserve.
 
-static Colour colour_of_player(int player_id) {
-  assert(player_id < PLAYER_NO);
-  return (player_id == 0 || player_id == 3) ? WHITE : BLACK;
-}
-
-static int next_player(int player_id) {
-  assert(player_id < PLAYER_NO);
-  return player_id ^ 1;
-}
-
 BughouseState::BughouseState() { reset(); }
 
 void BughouseState::reset() {
-  for (auto &b : boards)
+  for (auto &b : position.boards)
     b.reset();
-  for (auto &p : pockets)
+  for (auto &p : position.pockets)
     p = Pocket{};
   clock.set(DEFAULT_TIME, DEFAULT_INCREMENT);
 }
 
-bool BughouseState::apply_move(int player_id, Move move) {
-  assert(player_id < PLAYER_NO);
-  int board_idx = board_of(player_id);
-  Board &board = boards[board_idx];
-  Colour player_colour = colour_of_player(player_id);
+BughouseUndo apply_move(BughousePosition &position, PlayerId player,
+                        Move move) {
+  assert(position.boards[board_of(player)].is_legal(move));
 
-  if (board.sideToMove != player_colour)
-    return false;
+  int board_idx = board_of(player);
+  Board &board = position.boards[board_idx];
+  Colour player_colour = colour_of_player(player);
 
-  Pocket &player_pocket = pockets[player_id];
-  Pocket &partner_pocket = pockets[partner_of(player_id)];
+  PlayerId partner = partner_of(player);
+  Pocket &player_pocket = position.pockets[to_int(player)];
+  Pocket &partner_pocket = position.pockets[to_int(partner)];
+
+  BughouseUndo undo{};
 
   if (move.is_drop()) {
-    if (!player_pocket.contains(move.drop_pt))
-      return false;
+    undo.removedFromPocket = move.drop_pt;
 
-    // Check the drop appears in the generated drop list
-    auto legal_drops = generate_drops(board, player_pocket);
-    if (std::find(legal_drops.begin(), legal_drops.end(), move) == legal_drops.end())
-      return false;
-
-    // Validate the drop doesn't leave own king in check
-    Board copy = board;
-    copy.make_drop(move.drop_pt, move.to);
-    Square ksq = static_cast<Square>(std::countr_zero(
-        copy.bitboards[make_piece(player_colour, KING).index()]));
-    if (copy.is_attacked(ksq, flip(board.sideToMove)))
-      return false;
-
-    board.make_drop(move.drop_pt, move.to);
     player_pocket.remove(move.drop_pt);
+    undo.board = board.make_drop(move.drop_pt, move.to);
   } else {
-    // Check the move appears in the generated move list
-    auto legal_moves = generate_moves(board);
-    if (std::find(legal_moves.begin(), legal_moves.end(), move) == legal_moves.end())
-        return false;
-
-    if (!board.is_legal(move))
-      return false;
-
     Piece captured = board.piece_on(move.to);
     if (move.type == EN_PASSANT)
       captured = make_piece(flip(board.sideToMove), PAWN);
 
-    board.make_move(move);
+    undo.board = board.make_move(move);
 
     // Transfer capture to partner's reserve
-    if (!captured.is_empty()) {
-      PieceType cap_type = captured.type;
-      if (cap_type != KING)
-        partner_pocket.add(cap_type);
+    if (!captured.is_empty() && captured.type != KING) {
+      partner_pocket.add(captured.type);
+      undo.creditedPartner = true;
+      undo.creditedPiece = captured.type;
     }
   }
 
-  clock.stop(player_id);
-  clock.start(next_player(player_id));
-  return true;
+  return undo;
+}
+
+void undo_move(BughousePosition &position, PlayerId player, Move move,
+               const BughouseUndo &undo) {
+
+  Board &board = position.boards[board_of(player)];
+
+  if (undo.creditedPartner) {
+    PlayerId partner = partner_of(player);
+    position.pockets[to_int(partner)].remove(undo.creditedPiece);
+  }
+
+  if (move.is_drop()) {
+    board.undo_drop(move.to, undo.board);
+    position.pockets[to_int(player)].add(undo.removedFromPocket);
+  } else {
+    board.undo_move(move, undo.board);
+  }
 }
 
 GameResult BughouseState::result() const {
   if (clock.any_flagged()) {
     for (int i = 0; i < PLAYER_NO; i++) {
-      if (clock.flagged(i)) {
+      if (clock.flagged(to_player(i))) {
         return (i == 0 || i == 2) ? GameResult::TEAM_B_WINS
                                   : GameResult::TEAM_A_WINS;
       }
     }
   }
   for (int b = 0; b < BOARD_NO; b++) {
-    if (boards[b].is_checkmate()) {
-      Colour loser = boards[b].sideToMove;
+    if (position.boards[b].is_checkmate()) {
+      Colour loser = position.boards[b].sideToMove;
       int player_id = (b == 0) ? loser : (3 - loser);
       return (player_id == 0 || player_id == 2) ? GameResult::TEAM_B_WINS
                                                 : GameResult::TEAM_A_WINS;
@@ -111,18 +97,42 @@ GameResult BughouseState::result() const {
   return GameResult::ONGOING;
 }
 
+bool is_checkmate(const BughousePosition &position, PlayerId player) {
+
+  const Board &board = position.boards[board_of(player)];
+
+  if (!board.is_in_check())
+    return false;
+
+  auto moves = generate_legal_moves(position, player);
+
+  return moves.empty();
+}
+
+bool is_stalemate(const BughousePosition &position, PlayerId player) {
+
+  const Board &board = position.boards[board_of(player)];
+
+  if (board.is_in_check())
+    return false;
+
+  auto moves = generate_legal_moves(position, player);
+
+  return moves.empty();
+}
+
 void BughouseState::print() const {
   std::cout << "=== Board A (players 0=W, 1=B) ===\n";
-  boards[0].print();
+  position.boards[0].print();
   std::cout << "Pocket 0 (White): ";
-  pockets[0].print();
+  position.pockets[0].print();
   std::cout << "Pocket 1 (Black): ";
-  pockets[1].print();
+  position.pockets[1].print();
 
   std::cout << "\n=== Board B (players 3=W, 2=B) ===\n";
-  boards[1].print();
+  position.boards[1].print();
   std::cout << "Pocket 3 (White): ";
-  pockets[3].print();
+  position.pockets[3].print();
   std::cout << "Pocket 2 (Black): ";
-  pockets[2].print();
+  position.pockets[2].print();
 }

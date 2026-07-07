@@ -1,16 +1,17 @@
 #pragma once
+
 #include "types.h"
 #include <array>
 #include <cstdint>
 #include <string>
 
-#define SQUARE_NO 64
-#define PIECE_NO (static_cast<int>(PIECE_TYPE_NO) * static_cast<int>(COLOUR_NO))
+constexpr int SQUARE_NO = 64;
+constexpr int PIECE_NO =
+    static_cast<int>(PIECE_TYPE_NO) * static_cast<int>(COLOUR_NO);
 
 using Bitboard = uint64_t;
 
-struct UndoInfo {
-  Move move;
+struct BoardUndo {
   Piece captured;
 
   Square enPassantSquare = -1;
@@ -18,9 +19,6 @@ struct UndoInfo {
 
   int halfMove = 0;
   uint64_t hash = 0;
-
-  PieceType droppedPiece = NO_PIECE_TYPE;
-  PieceType pocketGain = NO_PIECE_TYPE;
 };
 
 class Board {
@@ -66,12 +64,12 @@ public:
   // Return bitboard of all pieces
   Bitboard bitboard_all() const;
 
-  UndoInfo make_move(Move move);
-  void undo_move(Move move, const UndoInfo &undoInfo);
+  BoardUndo make_move(Move move);
+  void undo_move(Move move, const BoardUndo &undo);
 
   // Place piece on square 'to' for side_to_move
-  UndoInfo make_drop(PieceType pt, Square to);
-  void undo_drop(Square to, const UndoInfo &undoInfo);
+  BoardUndo make_drop(PieceType pt, Square to);
+  void undo_drop(Square to, const BoardUndo &undo);
 
   bool is_in_check() const;
   bool is_attacked(Square square, Colour colour) const;
@@ -80,12 +78,15 @@ public:
     return move.type == EN_PASSANT || !piece_on(move.to).is_empty();
   }
 
+  // Only for testing
   bool is_checkmate() const;
   bool is_stalemate() const;
 
   void print() const;
 
   static void init_zobrist();
+
+  bool operator==(const Board &other) const = default;
 
 private:
   void put_piece(Piece piece, Square square);

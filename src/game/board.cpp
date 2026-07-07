@@ -330,7 +330,6 @@ void Board::update_castling_rights(Square from, Square to) {
       static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
       static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
       static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
       static_cast<CastlingRights>(7),  static_cast<CastlingRights>(15),
       static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
       static_cast<CastlingRights>(3),  static_cast<CastlingRights>(15),
@@ -341,9 +340,9 @@ void Board::update_castling_rights(Square from, Square to) {
   hash ^= Zobrist::castlingRights[castlingRights];
 }
 
-UndoInfo Board::make_move(Move move) {
-  UndoInfo undoInfo{move,           squares[move.to], enPassantSquare,
-                    castlingRights, halfMove,         hash};
+BoardUndo Board::make_move(Move move) {
+  BoardUndo undo{squares[move.to], enPassantSquare, castlingRights, halfMove,
+                 hash};
 
   Piece movedPiece = squares[move.from];
 
@@ -392,7 +391,7 @@ UndoInfo Board::make_move(Move move) {
 
   update_castling_rights(move.from, move.to);
 
-  if (movedPiece.type == PAWN || !undoInfo.captured.is_empty() ||
+  if (movedPiece.type == PAWN || !undo.captured.is_empty() ||
       move.type == EN_PASSANT)
     halfMove = 0;
   else
@@ -403,10 +402,10 @@ UndoInfo Board::make_move(Move move) {
   if (sideToMove == WHITE)
     fullMove++;
 
-  return undoInfo;
+  return undo;
 }
 
-void Board::undo_move(Move move, const UndoInfo &undoInfo) {
+void Board::undo_move(Move move, const BoardUndo &undo) {
   sideToMove = flip(sideToMove);
   if (sideToMove == BLACK)
     fullMove--;
@@ -424,23 +423,22 @@ void Board::undo_move(Move move, const UndoInfo &undoInfo) {
     } else {
       move_piece(move.to, move.from);
     }
-    if (!undoInfo.captured.is_empty())
-      put_piece(undoInfo.captured, move.to);
+    if (!undo.captured.is_empty())
+      put_piece(undo.captured, move.to);
     if (move.type == EN_PASSANT) {
       Square ep_cap = to_square(file_of(move.to), rank_of(move.from));
       put_piece(make_piece(flip(sideToMove), PAWN), ep_cap);
     }
   }
 
-  enPassantSquare = undoInfo.enPassantSquare;
-  castlingRights = undoInfo.castlingRights;
-  halfMove = undoInfo.halfMove;
-  hash = undoInfo.hash;
+  enPassantSquare = undo.enPassantSquare;
+  castlingRights = undo.castlingRights;
+  halfMove = undo.halfMove;
+  hash = undo.hash;
 }
 
-UndoInfo Board::make_drop(PieceType pt, Square to) {
-  UndoInfo undoInfo{Move::drop(pt, to), Piece{},  enPassantSquare,
-                    castlingRights,     halfMove, hash};
+BoardUndo Board::make_drop(PieceType pt, Square to) {
+  BoardUndo undo{Piece{}, enPassantSquare, castlingRights, halfMove, hash};
   if (enPassantSquare != -1) {
     hash ^= Zobrist::enPassantFile[file_of(enPassantSquare)];
     enPassantSquare = -1;
@@ -452,17 +450,17 @@ UndoInfo Board::make_drop(PieceType pt, Square to) {
   hash ^= Zobrist::side;
   if (sideToMove == WHITE)
     fullMove++;
-  return undoInfo;
+  return undo;
 }
 
-void Board::undo_drop(Square to, const UndoInfo &undoInfo) {
+void Board::undo_drop(Square to, const BoardUndo &undo) {
   sideToMove = flip(sideToMove);
   if (sideToMove == BLACK)
     fullMove--;
   remove_piece(to);
-  enPassantSquare = undoInfo.enPassantSquare;
-  halfMove = undoInfo.halfMove;
-  hash = undoInfo.hash;
+  enPassantSquare = undo.enPassantSquare;
+  halfMove = undo.halfMove;
+  hash = undo.hash;
 }
 
 bool Board::is_legal(Move move) const {
@@ -486,7 +484,7 @@ bool Board::is_legal(Move move) const {
 bool Board::is_checkmate() const {
   if (!is_in_check())
     return false;
-  auto moves = generate_moves(*this);
+  auto moves = generate_pseudo_legal_moves(*this);
   for (auto m : moves)
     if (is_legal(m))
       return false;
@@ -496,7 +494,7 @@ bool Board::is_checkmate() const {
 bool Board::is_stalemate() const {
   if (is_in_check())
     return false;
-  auto moves = generate_moves(*this);
+  auto moves = generate_pseudo_legal_moves(*this);
   for (auto m : moves)
     if (is_legal(m))
       return false;

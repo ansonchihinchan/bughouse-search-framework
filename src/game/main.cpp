@@ -99,13 +99,8 @@ int main() {
       continue;
     }
 
-    Colour stm = game.boards[board_idx].sideToMove;
-    int player_id = board_idx == 0 ? stm : 3 - stm;
-
-    if (!game.apply_move(player_id, move)) {
-      std::cout << "Illegal move '" << move_str << "' on board " << cmd << '\n';
-      continue;
-    }
+    Colour stm = game.position.boards[board_idx].sideToMove;
+    PlayerId player_id = to_player(board_idx == 0 ? stm : 3 - stm);
 
     game.print();
 

@@ -104,7 +104,8 @@ void add_pawn_moves(const Board &board, std::vector<Move> &moves) {
 }
 } // namespace
 
-std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
+std::vector<Move> generate_pseudo_legal_moves(const Board &board,
+                                              const Pocket *pocket) {
   init_tables();
   std::vector<Move> moves;
   moves.reserve(SQUARE_NO);
@@ -199,14 +200,27 @@ std::vector<Move> generate_moves(const Board &board, const Pocket *pocket) {
 
   // Drop moves
   if (pocket) {
-    auto drops = generate_drops(board, *pocket);
+    auto drops = generate_drop_moves(board, *pocket);
     moves.insert(moves.end(), drops.begin(), drops.end());
   }
 
   return moves;
 }
 
-std::vector<Move> generate_drops(const Board &board, const Pocket &pocket) {
+std::vector<Move> generate_legal_moves(const BughousePosition &position,
+                                       PlayerId player) {
+  const Board &board = position.boards[board_of(player)];
+
+  auto moves =
+      generate_pseudo_legal_moves(board, &position.pockets[to_int(player)]);
+
+  std::erase_if(moves, [&](const Move &move) { return !board.is_legal(move); });
+
+  return moves;
+}
+
+std::vector<Move> generate_drop_moves(const Board &board,
+                                      const Pocket &pocket) {
   std::vector<Move> moves;
   Bitboard empty = ~board.bitboard_all() & 0xFFFFFFFFFFFFFFFFULL;
 
@@ -232,20 +246,20 @@ std::vector<Move> generate_drops(const Board &board, const Pocket &pocket) {
 uint64_t perft(Board &board, int depth, const Pocket *pocket) {
   if (depth == 0)
     return 1;
-  auto moves = generate_moves(board, pocket);
+  auto moves = generate_pseudo_legal_moves(board, pocket);
   uint64_t nodes = 0;
   for (auto move : moves) {
     if (!board.is_legal(move))
       continue;
 
     if (move.is_drop()) {
-      UndoInfo undoInfo = board.make_drop(move.drop_pt, move.to);
+      BoardUndo undo = board.make_drop(move.drop_pt, move.to);
       nodes += perft(board, depth - 1, pocket);
-      board.undo_drop(move.to, undoInfo);
+      board.undo_drop(move.to, undo);
     } else {
-      UndoInfo undoInfo = board.make_move(move);
+      BoardUndo undo = board.make_move(move);
       nodes += perft(board, depth - 1, pocket);
-      board.undo_move(move, undoInfo);
+      board.undo_move(move, undo);
     }
   }
   return nodes;

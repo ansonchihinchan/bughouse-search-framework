@@ -137,3 +137,32 @@ TEST_CASE("Move equality compares all fields", "[types]") {
   REQUIRE(a != c);
   REQUIRE(a != d);
 }
+
+TEST_CASE("PlayerId converts to/from int and compares against raw ints",
+          "[types][playerid]") {
+  REQUIRE(to_int(to_player(0)) == 0);
+  REQUIRE(to_int(to_player(3)) == 3);
+
+  REQUIRE(to_player(2) == 2);
+  REQUIRE(2 == to_player(2));
+  REQUIRE(to_player(1) != 2);
+
+  REQUIRE(to_int(NO_PLAYER) == -1);
+}
+
+TEST_CASE("PlayerId::operator^ flips side and partner as expected",
+          "[types][playerid]") {
+  // Board 0: (0, 1) -- toggling ^1 flips the side to move on a board.
+  REQUIRE((to_player(0) ^ 1) == 1);
+  REQUIRE((to_player(1) ^ 1) == 0);
+
+  // Board 1: (2, 3)
+  REQUIRE((to_player(2) ^ 1) == 3);
+  REQUIRE((to_player(3) ^ 1) == 2);
+
+  // Partners: (0, 2), (1, 3) -- toggling ^2 crosses to the partner board.
+  REQUIRE((to_player(0) ^ 2) == 2);
+  REQUIRE((to_player(1) ^ 2) == 3);
+  REQUIRE((to_player(2) ^ 2) == 0);
+  REQUIRE((to_player(3) ^ 2) == 1);
+}

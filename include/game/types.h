@@ -150,3 +150,22 @@ struct Move {
     return s;
   }
 };
+
+enum class PlayerId : int {};
+
+constexpr int to_int(PlayerId p) { return static_cast<int>(p); }
+constexpr PlayerId to_player(int i) { return static_cast<PlayerId>(i); }
+
+constexpr PlayerId operator^(PlayerId p, int x) {
+  return to_player(to_int(p) ^ x);
+}
+
+constexpr bool operator==(PlayerId p, int i) { return to_int(p) == i; }
+constexpr bool operator==(int i, PlayerId p) { return i == to_int(p); }
+constexpr bool operator!=(PlayerId p, int i) { return !(p == i); }
+constexpr bool operator!=(int i, PlayerId p) { return !(i == p); }
+
+constexpr PlayerId NO_PLAYER = to_player(-1);
+
+constexpr int PLAYER_NO = 4;
+constexpr int BOARD_NO = 2;

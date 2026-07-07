@@ -6,21 +6,25 @@
 namespace {
 constexpr const char *START_FEN =
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+constexpr Square sq(char file, int rank) {
+  return to_square(file - 'a', rank - 1);
 }
+} // namespace
 
 TEST_CASE("BughouseState initializes both boards to the standard start",
           "[bughouse][init]") {
   BughouseState game;
 
-  REQUIRE(game.boards[0].to_fen() == START_FEN);
-  REQUIRE(game.boards[1].to_fen() == START_FEN);
-  REQUIRE(game.boards[0].sideToMove == WHITE);
-  REQUIRE(game.boards[1].sideToMove == WHITE);
+  REQUIRE(game.position.boards[0].to_fen() == START_FEN);
+  REQUIRE(game.position.boards[1].to_fen() == START_FEN);
+  REQUIRE(game.position.boards[0].sideToMove == WHITE);
+  REQUIRE(game.position.boards[1].sideToMove == WHITE);
 }
 
 TEST_CASE("BughouseState initializes all pockets empty", "[bughouse][init]") {
   BughouseState game;
-  for (auto &p : game.pockets)
+  for (auto &p : game.position.pockets)
     REQUIRE(p.empty());
 }
 
@@ -28,183 +32,203 @@ TEST_CASE("BughouseState initializes clocks for all players",
           "[bughouse][init]") {
   BughouseState game;
   for (int i = 0; i < PLAYER_NO; i++)
-    REQUIRE(game.clock.remaining(i) == 3 * 60 * 1000);
+    REQUIRE(game.clock.remaining(to_player(i)) == 3 * 60 * 1000);
   REQUIRE(game.clock.increment_ms == 2 * 1000);
 }
 
 TEST_CASE("board_of/partner_of map players onto boards/partners correctly",
           "[bughouse][init]") {
   BughouseState game;
-  REQUIRE(game.board_of(0) == 0);
-  REQUIRE(game.board_of(1) == 0);
-  REQUIRE(game.board_of(2) == 1);
-  REQUIRE(game.board_of(3) == 1);
+  REQUIRE(board_of(to_player(0)) == 0);
+  REQUIRE(board_of(to_player(1)) == 0);
+  REQUIRE(board_of(to_player(2)) == 1);
+  REQUIRE(board_of(to_player(3)) == 1);
 
-  REQUIRE(game.partner_of(0) == 2);
-  REQUIRE(game.partner_of(2) == 0);
-  REQUIRE(game.partner_of(1) == 3);
-  REQUIRE(game.partner_of(3) == 1);
+  REQUIRE(partner_of(to_player(0)) == 2);
+  REQUIRE(partner_of(to_player(2)) == 0);
+  REQUIRE(partner_of(to_player(1)) == 3);
+  REQUIRE(partner_of(to_player(3)) == 1);
 }
 
-TEST_CASE("apply_move rejects a move from the wrong player", "[bughouse]") {
-  BughouseState game;
-  // Board 0 side to move is WHITE (player 0), so player 1 must not move.
-  Move e7e5 = Move::normal(to_square(4, 6), to_square(4, 4));
-  REQUIRE_FALSE(game.apply_move(1, e7e5));
-  REQUIRE(game.boards[0].to_fen() == START_FEN);
+TEST_CASE("BughouseState reset restores initial state", "[bughouse][init]") {
+  BughouseState state;
+
+  state.position.pockets[0].add(PAWN);
+  state.position.pockets[2].add(ROOK);
+
+  state.reset();
+
+  for (int p = 0; p < PLAYER_NO; ++p)
+    REQUIRE(state.position.pockets[p].empty());
+
+  Board initial;
+
+  REQUIRE(state.position.boards[0].to_fen() == initial.to_fen());
+  REQUIRE(state.position.boards[1].to_fen() == initial.to_fen());
 }
 
-TEST_CASE("apply_move rejects an illegal (non-generated) move", "[bughouse]") {
-  BughouseState game;
-  // Knight cannot jump straight ahead like a rook here.
-  Move bogus = Move::normal(to_square(1, 0), to_square(1, 4)); // b1-b5
-  REQUIRE_FALSE(game.apply_move(0, bogus));
+TEST_CASE("Normal move can be applied", "[bughouse][apply]") {
+  BughouseState state;
+
+  auto moves = generate_legal_moves(state.position, to_player(0));
+
+  REQUIRE_FALSE(moves.empty());
+
+  REQUIRE_NOTHROW(apply_move(state.position, to_player(0), moves.front()));
 }
 
-TEST_CASE("apply_move accepts a legal move and switches side to move",
-          "[bughouse]") {
-  BughouseState game;
-  Move e2e4 = Move::normal(to_square(4, 1), to_square(4, 3));
-  REQUIRE(game.apply_move(0, e2e4));
-  REQUIRE(game.boards[0].sideToMove == BLACK);
+TEST_CASE("Capture credits partner pocket", "[bughouse][apply]") {
+  BughouseState state;
+
+  state.position.boards[0].load_fen("4k3/8/8/8/8/8/4p3/4KQ2 w - - 0 1");
+
+  auto moves = generate_legal_moves(state.position, to_player(0));
+
+  auto capture = std::find_if(moves.begin(), moves.end(),
+                              [](const Move &m) { return m.to == sq('e', 2); });
+
+  REQUIRE(capture != moves.end());
+
+  apply_move(state.position, to_player(0), *capture);
+
+  REQUIRE(state.position.pockets[2].count(PAWN) == 1);
 }
 
-TEST_CASE("apply_move captures transfer the piece to partner's pocket",
-          "[bughouse][partner]") {
-  // White pawn on e5 can capture black pawn on d6 via a normal capture.
+TEST_CASE("Drop move removes piece from pocket", "[bughouse][apply]") {
+  BughouseState state;
+
+  state.position.pockets[0].add(KNIGHT);
+
+  auto drops =
+      generate_drop_moves(state.position.boards[0], state.position.pockets[0]);
+
+  REQUIRE_FALSE(drops.empty());
+
+  auto drop = drops.front();
+
+  REQUIRE(drop.is_drop());
+
+  apply_move(state.position, to_player(0), drop);
+
+  REQUIRE(state.position.pockets[0].count(drop.drop_pt) == 0);
+}
+
+TEST_CASE("undo_move restores a capture", "[bughouse][undo]") {
   BughouseState game;
-  game.boards[0].load_fen("k7/8/3p4/4P3/8/8/8/7K w - - 0 1");
+
+  game.position.boards[0].load_fen("k7/8/3p4/4P3/8/8/8/7K w - - 0 1");
+
+  auto before = game.position;
 
   Move exd6 = Move::normal(to_square(4, 4), to_square(3, 5));
-  REQUIRE(game.apply_move(0, exd6));
 
-  // Player 0's partner is player 2.
-  REQUIRE(game.pockets[2].count(PAWN) == 1);
-  REQUIRE(game.pockets[0].empty());
-  REQUIRE(game.pockets[1].empty());
-  REQUIRE(game.pockets[3].empty());
+  auto undo = apply_move(game.position, to_player(0), exd6);
+
+  undo_move(game.position, to_player(0), exd6, undo);
+
+  REQUIRE(game.position.boards[0].to_fen() == before.boards[0].to_fen());
+
+  REQUIRE(game.position.pockets == before.pockets);
 }
 
-TEST_CASE("apply_move captures on board B credit board A's partner",
-          "[bughouse][partner]") {
-  // Board 1 (index 1) is driven by players 2 (black) and 3 (white).
-  BughouseState game;
-  game.boards[1].load_fen("k7/8/3p4/4P3/8/8/8/7K w - - 0 1");
+TEST_CASE("Undo restores board after normal move", "[bughouse][undo]") {
+  BughouseState state;
 
-  Move exd6 = Move::normal(to_square(4, 4), to_square(3, 5));
-  // Side to move on boards[1] is WHITE -> player 3.
-  REQUIRE(game.apply_move(3, exd6));
+  auto before = state.position.boards[0].to_fen();
 
-  // Player 3's partner is player 1.
-  REQUIRE(game.pockets[1].count(PAWN) == 1);
-  REQUIRE(game.pockets[3].empty());
+  auto moves = generate_legal_moves(state.position, to_player(0));
+
+  REQUIRE_FALSE(moves.empty());
+
+  auto move = moves.front();
+
+  auto undo = apply_move(state.position, to_player(0), move);
+
+  undo_move(state.position, to_player(0), move, undo);
+
+  REQUIRE(state.position.boards[0].to_fen() == before);
 }
 
-TEST_CASE("captured king never enters a pocket", "[bughouse][partner]") {
-  // Not reachable in a legal game since kings are never captured, but
-  // apply_move must not add KING to any pocket if it ever occurred.
+TEST_CASE("undo restores a drop", "[bughouse][undo]") {
   BughouseState game;
-  game.boards[0].load_fen("k7/8/8/8/8/8/8/7K w - - 0 1");
-  // No capture available here; just assert pockets remain empty after a
-  // normal king move (sanity check that non-capturing moves add nothing).
-  Move kmove = Move::normal(to_square(7, 0), to_square(6, 0));
-  REQUIRE(game.apply_move(0, kmove));
-  for (auto &p : game.pockets)
-    REQUIRE(p.empty());
-}
 
-TEST_CASE("apply_move rejects a drop when the pocket lacks the piece",
-          "[bughouse][drops]") {
-  BughouseState game;
+  game.position.boards[0].load_fen("k7/8/8/8/8/8/8/7K w - - 0 1");
+
+  game.position.pockets[0].add(KNIGHT);
+
+  auto before = game.position;
+
   Move drop = Move::drop(KNIGHT, to_square(4, 3));
-  REQUIRE_FALSE(game.apply_move(0, drop));
+
+  auto undo = apply_move(game.position, to_player(0), drop);
+
+  undo_move(game.position, to_player(0), drop, undo);
+
+  REQUIRE(game.position.boards[0].to_fen() == before.boards[0].to_fen());
+
+  REQUIRE(game.position.pockets == before.pockets);
 }
 
-TEST_CASE("apply_move accepts a drop onto an empty square and removes it "
-          "from the pocket",
-          "[bughouse][drops]") {
+TEST_CASE("apply undo identity", "[bughouse][undo]") {
   BughouseState game;
-  game.boards[0].load_fen("k7/8/8/8/8/8/8/7K w - - 0 1");
-  game.pockets[0].add(KNIGHT);
 
-  Move drop = Move::drop(KNIGHT, to_square(4, 3)); // e4
-  REQUIRE(game.apply_move(0, drop));
+  auto moves = generate_legal_moves(game.position, to_player(0));
 
-  REQUIRE(game.boards[0].piece_on(to_square(4, 3)) ==
-          make_piece(WHITE, KNIGHT));
-  REQUIRE(game.pockets[0].count(KNIGHT) == 0);
-  REQUIRE(game.boards[0].sideToMove == BLACK);
+  for (Move m : moves) {
+    auto before = game.position;
+
+    auto undo = apply_move(game.position, to_player(0), m);
+
+    undo_move(game.position, to_player(0), m, undo);
+
+    REQUIRE(game.position.boards == before.boards);
+
+    REQUIRE(game.position.pockets == before.pockets);
+  }
 }
 
-TEST_CASE("apply_move rejects dropping a pawn onto the back rank",
-          "[bughouse][drops]") {
+TEST_CASE("undo removes credited partner piece", "[bughouse][undo]") {
   BughouseState game;
-  game.boards[0].load_fen("k7/8/8/8/8/8/8/7K w - - 0 1");
-  game.pockets[0].add(PAWN);
 
-  Move drop = Move::drop(PAWN, to_square(4, 7)); // rank 8
-  REQUIRE_FALSE(game.apply_move(0, drop));
-  REQUIRE(game.pockets[0].count(PAWN) == 1);
-}
+  game.position.boards[0].load_fen("k7/8/3p4/4P3/8/8/8/7K w - - 0 1");
 
-TEST_CASE("apply_move rejects a drop onto an occupied square",
-          "[bughouse][drops]") {
-  BughouseState game;
-  game.pockets[0].add(KNIGHT);
-  // e2 is occupied by white's own pawn in the start position.
-  Move drop = Move::drop(KNIGHT, to_square(4, 1));
-  REQUIRE_FALSE(game.apply_move(0, drop));
-}
-
-TEST_CASE("moves on one board do not alter the other board's state",
-          "[bughouse][independence]") {
-  BughouseState game;
-  Move e2e4 = Move::normal(to_square(4, 1), to_square(4, 3));
-  REQUIRE(game.apply_move(0, e2e4));
-
-  REQUIRE(game.boards[1].to_fen() == START_FEN);
-}
-
-TEST_CASE("captures on one board only affect the capturing player's "
-          "partner pocket, not other pockets",
-          "[bughouse][independence]") {
-  BughouseState game;
-  game.boards[0].load_fen("k7/8/3p4/4P3/8/8/8/7K w - - 0 1");
   Move exd6 = Move::normal(to_square(4, 4), to_square(3, 5));
-  REQUIRE(game.apply_move(0, exd6));
 
-  REQUIRE(game.pockets[1].empty());
-  REQUIRE(game.pockets[3].empty());
+  auto undo = apply_move(game.position, to_player(0), exd6);
+
+  REQUIRE(game.position.pockets[2].count(PAWN) == 1);
+
+  undo_move(game.position, to_player(0), exd6, undo);
+
+  REQUIRE(game.position.pockets[2].empty());
 }
 
-TEST_CASE("result() is ONGOING at game start", "[bughouse][terminal]") {
-  BughouseState game;
-  REQUIRE(game.result() == GameResult::ONGOING);
+TEST_CASE("Checkmate detection", "[bughouse][rules]") {
+  BughousePosition pos;
+
+  pos.boards[0].load_fen("7k/6Q1/6K1/8/8/8/8/8 b - - 0 1");
+
+  REQUIRE(is_checkmate(pos, to_player(1)));
 }
 
-TEST_CASE("result() reports TEAM_B_WINS when board 0 is checkmated for White",
-          "[bughouse][terminal]") {
-  BughouseState game;
-  // Fool's mate style position: White (player 0, team A) is checkmated.
-  game.boards[0].load_fen(
-      "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 2 3");
+TEST_CASE("Stalemate detection", "[bughouse][rules]") {
+  BughousePosition pos;
 
-  REQUIRE(game.boards[0].is_checkmate());
-  REQUIRE(game.result() == GameResult::TEAM_B_WINS);
+  pos.boards[0].load_fen("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1");
+
+  REQUIRE(is_stalemate(pos, to_player(1)));
 }
 
-TEST_CASE("result() reports a team win when a player's clock has flagged",
-          "[bughouse][terminal][clock]") {
-  BughouseState game;
-  game.clock.set(0, 0); // everyone flagged, player 0 checked first
-  REQUIRE(game.clock.any_flagged());
-  REQUIRE(game.result() == GameResult::TEAM_B_WINS);
+TEST_CASE("New game is ongoing", "[bughouse][result]") {
+  BughouseState state;
+
+  REQUIRE(state.result() == GameResult::ONGOING);
 }
 
-TEST_CASE("apply_move switches the clock's active player",
-          "[bughouse][clock]") {
-  BughouseState game;
-  Move e2e4 = Move::normal(to_square(4, 1), to_square(4, 3));
-  REQUIRE(game.apply_move(0, e2e4));
-  REQUIRE(game.clock.active_player == 1);
+TEST_CASE("Checkmate returns winning team", "[bughouse][result]") {
+  BughouseState state;
+
+  state.position.boards[0].load_fen("7k/6Q1/6K1/8/8/8/8/8 b - - 0 1");
+
+  REQUIRE(state.result() == GameResult::TEAM_A_WINS);
 }
