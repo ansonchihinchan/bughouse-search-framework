@@ -4,6 +4,7 @@ add_library(game
     clock.cpp
     movegen.cpp
     pocket.cpp
+    zobrist.cpp
 )
 
 target_include_directories(game
