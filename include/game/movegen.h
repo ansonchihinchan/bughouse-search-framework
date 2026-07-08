@@ -1,7 +1,7 @@
 #pragma once
 
-#include "bughouse.h"
-#include "types.h"
+#include "game/bughouse.h"
+#include "game/types.h"
 #include <vector>
 
 class Board;

@@ -1,5 +1,10 @@
 #include "search/tree_search.h"
 
+namespace {
+constexpr int ASPIRATION_INITIAL_WINDOW = 25;
+constexpr int ASPIRATION_START_DEPTH = 3;
+} // namespace
+
 bool TreeSearch::deadline_reached() const {
   if (limits_.max_nodes != 0 && stats_.nodes >= limits_.max_nodes)
     return true;
@@ -19,15 +24,42 @@ SearchResult TreeSearch::search(const BughousePosition &position,
   stats_ = SearchStats{};
   limits_ = limits;
   start_time_ = std::chrono::steady_clock::now();
+  tt_.new_search();
 
   SearchResult best;
   int max_depth = limits.max_depth > 0 ? limits.max_depth : 128;
+  int prev_score = 0;
 
   for (int depth = 1; depth <= max_depth; depth++) {
     if (stop_token.stop_requested() || deadline_reached())
       break;
 
-    SearchResult result = search_root(position, context, depth, stop_token);
+    int alpha = -INF_SCORE, beta = INF_SCORE;
+    int window = ASPIRATION_INITIAL_WINDOW;
+    if (depth >= ASPIRATION_START_DEPTH) {
+      alpha = std::max(-INF_SCORE, prev_score - window);
+      beta = std::min(INF_SCORE, prev_score + window);
+    }
+
+    SearchResult result;
+
+    for (;;) {
+      result = search_root(position, context, depth, alpha, beta, stop_token);
+
+      if (stop_token.stop_requested() || deadline_reached())
+        break;
+
+      if (result.score <= alpha) {
+        alpha = std::max(-INF_SCORE, alpha - window);
+        window *= 2;
+      } else if (result.score >= beta) {
+        beta = std::min(INF_SCORE, beta + window);
+        window *= 2;
+      } else {
+        // laned inside the window
+        break;
+      }
+    }
 
     if (!result.best_move.is_none()) {
       best = result;
