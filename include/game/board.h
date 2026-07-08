@@ -1,6 +1,6 @@
 #pragma once
 
-#include "types.h"
+#include "game/types.h"
 #include <array>
 #include <cstdint>
 #include <string>
@@ -71,12 +71,16 @@ public:
   BoardUndo make_drop(PieceType pt, Square to);
   void undo_drop(Square to, const BoardUndo &undo);
 
+  BoardUndo make_null_move();
+  void undo_null_move(const BoardUndo &undo);
+
   bool is_in_check() const;
   bool is_attacked(Square square, Colour colour) const;
   bool is_legal(Move move) const;
   bool is_capture(Move move) const {
     return move.type == EN_PASSANT || !piece_on(move.to).is_empty();
   }
+  bool has_non_pawn(Colour colour) const;
 
   // Only for testing
   bool is_checkmate() const;

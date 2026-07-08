@@ -1,9 +1,9 @@
 #pragma once
 
-#include "board.h"
-#include "clock.h"
-#include "pocket.h"
-#include "types.h"
+#include "game/board.h"
+#include "game/clock.h"
+#include "game/pocket.h"
+#include "game/types.h"
 #include <array>
 #include <optional>
 
@@ -53,10 +53,16 @@ struct BughouseState {
   void print() const;
 };
 
+uint64_t position_hash(const BughousePosition &position);
+
 BughouseUndo apply_move(BughousePosition &position, PlayerId player, Move move);
 
 void undo_move(BughousePosition &position, PlayerId player, Move move,
                const BughouseUndo &undo);
+
+BoardUndo make_null_move(BughousePosition &position, PlayerId player);
+void undo_null_move(BughousePosition &position, PlayerId player,
+                    const BoardUndo &undo);
 
 bool is_checkmate(const BughousePosition &position, PlayerId player);
 bool is_stalemate(const BughousePosition &position, PlayerId player);

@@ -1,5 +1,7 @@
 #include "game/bughouse.h"
 #include "game/movegen.h"
+#include "game/zobrist.h"
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 
@@ -20,6 +22,24 @@ void BughouseState::reset() {
   for (auto &p : position.pockets)
     p = Pocket{};
   clock.set(DEFAULT_TIME, DEFAULT_INCREMENT);
+}
+
+uint64_t position_hash(const BughousePosition &position) {
+  Zobrist::ensure_init();
+
+  uint64_t hash = position.boards[0].hash;
+  hash ^= (position.boards[1].hash << 1) | (position.boards[1].hash >> 63);
+
+  for (int p = 0; p < PLAYER_NO; p++) {
+    const Pocket &pocket = position.pockets[p];
+    for (int pt = PAWN; pt <= QUEEN; pt++) {
+      int count = pocket.count(static_cast<PieceType>(pt));
+      if (count > 0)
+        hash ^= Zobrist::pocket[p][pt]
+                               [std::min(count, Zobrist::MAX_POCKET_COUNT - 1)];
+    }
+  }
+  return hash;
 }
 
 BughouseUndo apply_move(BughousePosition &position, PlayerId player,
@@ -75,6 +95,15 @@ void undo_move(BughousePosition &position, PlayerId player, Move move,
   } else {
     board.undo_move(move, undo.board);
   }
+}
+
+BoardUndo make_null_move(BughousePosition &position, PlayerId player) {
+  return position.boards[board_of(player)].make_null_move();
+}
+
+void undo_null_move(BughousePosition &position, PlayerId player,
+                    const BoardUndo &undo) {
+  position.boards[board_of(player)].undo_null_move(undo);
 }
 
 GameResult BughouseState::result() const {

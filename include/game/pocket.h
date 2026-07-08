@@ -1,6 +1,6 @@
 #pragma once
 
-#include "types.h"
+#include "game/types.h"
 #include <array>
 
 class Pocket {

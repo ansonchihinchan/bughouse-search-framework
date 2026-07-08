@@ -1,5 +1,6 @@
 #include "game/board.h"
 #include "game/movegen.h"
+#include "game/zobrist.h"
 #include <bit>
 #include <cassert>
 #include <iostream>
@@ -7,38 +8,7 @@
 #include <random>
 #include <sstream>
 
-#define CASTLING_RIGHTS_NO 16
-#define ENPASSANT_FILE_NO 8
 #define a8 56
-
-namespace Zobrist {
-// piece × square
-uint64_t pieceSquare[PIECE_NO][SQUARE_NO];
-uint64_t side;
-uint64_t castlingRights[CASTLING_RIGHTS_NO];
-uint64_t enPassantFile[ENPASSANT_FILE_NO];
-
-std::once_flag init_flag;
-
-void init() {
-  std::mt19937_64 rng(0xAC0123456789ULL);
-  for (int piece = 0; piece < PIECE_NO; piece++) {
-    for (int square = 0; square < SQUARE_NO; square++) {
-      pieceSquare[piece][square] = rng();
-    }
-  }
-  side = rng();
-  for (int cr = 0; cr < CASTLING_RIGHTS_NO; cr++) {
-    castlingRights[cr] = rng();
-  }
-  for (int epf = 0; epf < ENPASSANT_FILE_NO; epf++) {
-    enPassantFile[epf] = rng();
-  }
-}
-
-void ensure_init() { std::call_once(init_flag, init); }
-
-} // namespace Zobrist
 
 Board::Board() { reset(); }
 Board::Board(const std::string &fen) { load_fen(fen); }
@@ -461,6 +431,41 @@ void Board::undo_drop(Square to, const BoardUndo &undo) {
   enPassantSquare = undo.enPassantSquare;
   halfMove = undo.halfMove;
   hash = undo.hash;
+}
+
+BoardUndo Board::make_null_move() {
+  BoardUndo undo{Piece{}, enPassantSquare, castlingRights, halfMove, hash};
+
+  if (enPassantSquare != -1) {
+    hash ^= Zobrist::enPassantFile[file_of(enPassantSquare)];
+    enPassantSquare = -1;
+  }
+
+  sideToMove = flip(sideToMove);
+  hash ^= Zobrist::side;
+
+  if (sideToMove == WHITE)
+    fullMove++;
+  return undo;
+}
+
+void Board::undo_null_move(const BoardUndo &undo) {
+  sideToMove = flip(sideToMove);
+
+  if (sideToMove == BLACK)
+    fullMove--;
+
+  enPassantSquare = undo.enPassantSquare;
+  castlingRights = undo.castlingRights;
+  halfMove = undo.halfMove;
+  hash = undo.hash;
+}
+
+bool Board::has_non_pawn(Colour colour) const {
+  for (PieceType pt : {KNIGHT, BISHOP, ROOK, QUEEN})
+    if (bitboards[make_piece(colour, pt).index()])
+      return true;
+  return false;
 }
 
 bool Board::is_legal(Move move) const {
