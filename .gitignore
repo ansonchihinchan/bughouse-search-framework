@@ -3,3 +3,7 @@
 *~
 
 build/
+
+bench/results
+
+bench/README.md

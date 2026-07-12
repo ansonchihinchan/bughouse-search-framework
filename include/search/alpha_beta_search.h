@@ -38,6 +38,8 @@ protected:
   std::array<Move, MAX_PLY> killer1_{};
   std::array<Move, MAX_PLY> killer2_{};
 
+  // TODO: history(prev_move, curr_move)
+  // TODO: separate history structures for ordinary moves, drops(attack/defense)
   std::array<std::array<int, SQUARE_NO>, PIECE_NO> history_{};
 
   void clear_killers() override;

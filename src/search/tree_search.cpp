@@ -36,6 +36,7 @@ SearchResult TreeSearch::search(const BughousePosition &position,
       break;
 
     int alpha = -INF_SCORE, beta = INF_SCORE;
+    // TODO: adapt initial window
     int window = ASPIRATION_INITIAL_WINDOW;
     if (depth >= ASPIRATION_START_DEPTH) {
       alpha = std::max(-INF_SCORE, prev_score - window);
@@ -64,6 +65,7 @@ SearchResult TreeSearch::search(const BughousePosition &position,
     if (!result.best_move.is_none()) {
       best = result;
       stats_.depth_reached = depth;
+      stats_.nodes_by_depth.push_back(stats_.nodes);
     }
 
     if (stop_token.stop_requested() || deadline_reached())

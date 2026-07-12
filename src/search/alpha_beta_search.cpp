@@ -34,12 +34,15 @@ void AlphaBetaSearch::update_quiet_heuristics(Move move, int depth, int ply,
   history_[moved_piece.index()][move.to] += depth * depth;
 }
 
+// TODO: new module for move ordering
+// TODO: Threat-first ordering
 void AlphaBetaSearch::order_moves(const BughousePosition &position,
                                   const SearchContext &context,
                                   std::vector<ScoredMove> &scored_moves,
                                   const TTEntry *tt_entry, int ply) const {
   const Board &board = position.boards[board_of(context.root_player)];
 
+  // TODO: SEE
   for (ScoredMove &scored_move : scored_moves) {
     const Move &move = scored_move.move;
 
@@ -71,6 +74,8 @@ void AlphaBetaSearch::order_moves(const BughousePosition &position,
               : board.piece_on(move.from);
       scored_move.score = history_[moved_piece.index()][move.to];
     }
+
+    // TODO: Counter move heuristic
   }
 
   // TODO: for each move select highest and search
@@ -84,6 +89,7 @@ int AlphaBetaSearch::alpha_beta(BughousePosition &position,
                                 const SearchContext &context, int depth,
                                 int alpha, int beta, int ply,
                                 std::stop_token stop_token) {
+  // TODO: Futility pruning
   stats_.nodes++;
 
   if (depth <= 0 || stop_token.stop_requested() || deadline_reached())
@@ -93,7 +99,12 @@ int AlphaBetaSearch::alpha_beta(BughousePosition &position,
   uint64_t key = position_hash(position);
   const TTEntry *tt_entry = tt_.probe(key);
 
+  stats_.tt_probes++;
+  if (tt_entry)
+    stats_.tt_hits++;
+
   if (tt_entry && tt_entry->depth >= depth) {
+    stats_.tt_cutoffs++;
 
     switch (tt_entry->bound) {
     case TTBound::EXACT:
@@ -127,8 +138,10 @@ int AlphaBetaSearch::alpha_beta(BughousePosition &position,
   int best = -INF_SCORE;
   Move best_move;
   bool completed = true;
+  int move_index = 0;
 
   for (ScoredMove &scored_move : scored_moves) {
+    // TODO: LMR
     Move move = scored_move.move;
     bool capture = board.is_capture(move);
     Piece moved_piece =
@@ -151,6 +164,8 @@ int AlphaBetaSearch::alpha_beta(BughousePosition &position,
 
     if (alpha >= beta) {
       stats_.beta_cutoffs++;
+      if (move_index == 0)
+        stats_.first_move_cutoffs++;
 
       if (!capture)
         update_quiet_heuristics(move, depth, ply, moved_piece);
@@ -162,6 +177,8 @@ int AlphaBetaSearch::alpha_beta(BughousePosition &position,
       completed = false;
       break;
     }
+
+    move_index++;
   }
 
   if (completed) {
@@ -235,6 +252,7 @@ SearchResult AlphaBetaSearch::search_root(const BughousePosition &position,
 int AlphaBetaSearch::quiescence(BughousePosition &position,
                                 const SearchContext &context, int alpha,
                                 int beta, std::stop_token stop_token) {
+  // TODO: SEE filtering, delta pruning, capture ordering, check extensions
   stats_.nodes++;
 
   if (stop_token.stop_requested() || deadline_reached())
@@ -254,6 +272,7 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
     alpha = std::max(alpha, stand_pat);
   }
 
+  // TODO: Delta pruning
   std::vector<Move> moves = generate_legal_moves(position, context.root_player);
 
   if (in_check) {
