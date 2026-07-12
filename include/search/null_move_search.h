@@ -8,11 +8,5 @@ public:
   const char *name() const override { return "null_move"; }
 
 protected:
-  int alpha_beta(BughousePosition &position, const SearchContext &context,
-                 int depth, int alpha, int beta,
-                 std::stop_token stop_token) override;
-
-private:
-  static constexpr int NULL_MOVE_REDUCTION = 3;
-  static constexpr int NULL_MOVE_MIN_DEPTH = 3;
+  bool null_move_enabled() const override { return true; }
 };

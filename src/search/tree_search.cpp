@@ -25,6 +25,7 @@ SearchResult TreeSearch::search(const BughousePosition &position,
   limits_ = limits;
   start_time_ = std::chrono::steady_clock::now();
   tt_.new_search();
+  clear_killers();
 
   SearchResult best;
   int max_depth = limits.max_depth > 0 ? limits.max_depth : 128;
@@ -56,7 +57,6 @@ SearchResult TreeSearch::search(const BughousePosition &position,
         beta = std::min(INF_SCORE, beta + window);
         window *= 2;
       } else {
-        // laned inside the window
         break;
       }
     }
@@ -69,6 +69,8 @@ SearchResult TreeSearch::search(const BughousePosition &position,
     if (stop_token.stop_requested() || deadline_reached())
       break;
   }
+
+  age_history();
 
   stats_.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - start_time_);

@@ -37,3 +37,8 @@ struct SearchResult {
   int score = 0;
   SearchStats stats;
 };
+
+struct ScoredMove {
+  Move move;
+  int score = 0;
+};
