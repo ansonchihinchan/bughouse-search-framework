@@ -1,6 +1,5 @@
 add_library(search
     alpha_beta_search.cpp
-    null_move_search.cpp
     pvs.cpp
     transposition_table.cpp
     tree_search.cpp

@@ -13,20 +13,40 @@ protected:
                            const SearchContext &context, int depth, int alpha,
                            int beta, std::stop_token stop_token) override;
 
-  // PVSearch/NullMoveSearch overrides
+  // PVS overrides
   virtual int alpha_beta(BughousePosition &position,
                          const SearchContext &context, int depth, int alpha,
-                         int beta, std::stop_token stop_token);
+                         int beta, int ply, std::stop_token stop_token);
 
   virtual void order_moves(const BughousePosition &position,
                            const SearchContext &context,
-                           std::vector<Move> &moves) const;
+                           std::vector<ScoredMove> &moves,
+                           const TTEntry *tt_entry, int ply) const;
 
   int quiescence(BughousePosition &position, const SearchContext &context,
                  int alpha, int beta, std::stop_token stop_token);
 
   int leaf_eval(BughousePosition &position, const SearchContext &context,
                 int alpha, int beta, std::stop_token stop_token) override {
-    return quiescence(position, context, alpha, beta, stop_token);
+    if (evaluator_.is_noisy(position, context))
+      return quiescence(position, context, alpha, beta, stop_token);
+    else
+      return evaluator_.evaluate(position, context);
   }
+
+  static constexpr int MAX_PLY = 128;
+  std::array<Move, MAX_PLY> killer1_{};
+  std::array<Move, MAX_PLY> killer2_{};
+
+  std::array<std::array<int, SQUARE_NO>, PIECE_NO> history_{};
+
+  void clear_killers() override;
+  void age_history() override;
+  void update_quiet_heuristics(Move move, int depth, int ply,
+                               Piece moved_piece);
+
+  // NullMoveSearch overrides
+  virtual bool null_move_enabled() const { return false; }
+  virtual int null_move_reduction() const { return 3; }
+  virtual int null_move_min_depth() const { return 3; }
 };

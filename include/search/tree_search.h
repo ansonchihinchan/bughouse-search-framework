@@ -30,6 +30,10 @@ protected:
     return evaluator_.evaluate(position, context);
   }
 
+  // AlphaBeta overrides
+  virtual void clear_killers() {}
+  virtual void age_history() {}
+
   bool deadline_reached() const;
 
   SearchStats stats_;
