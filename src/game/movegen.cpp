@@ -1,50 +1,9 @@
 #include "game/movegen.h"
+#include "game/attacks.h"
 
 #include <bit>
 
 namespace {
-// Precomputed knight/king attack tables
-uint64_t KnightAttacks[SQUARE_NO];
-uint64_t KingAttacks[SQUARE_NO];
-
-bool tables_init = false;
-void init_tables() {
-  if (tables_init)
-    return;
-  tables_init = true;
-  const int knight_offs[] = {17, 15, 10, 6, -6, -10, -15, -17};
-  const int king_offs[] = {9, 8, 7, 1, -1, -7, -8, -9};
-  for (int s = 0; s < 64; s++) {
-    for (int off : knight_offs) {
-      int t = s + off;
-      if (t >= 0 && t < 64 && std::abs((t & 7) - (s & 7)) <= 2)
-        KnightAttacks[s] |= 1ULL << t;
-    }
-    for (int off : king_offs) {
-      int t = s + off;
-      if (t >= 0 && t < 64 && std::abs((t & 7) - (s & 7)) <= 1)
-        KingAttacks[s] |= 1ULL << t;
-    }
-  }
-}
-
-Bitboard sliding(Square square, Bitboard bitboard, const int *dirs, int n) {
-  Bitboard attack = 0;
-  for (int i = 0; i < n; i++) {
-    int cur = square + dirs[i];
-    while (cur >= 0 && cur < 64 &&
-           std::abs((cur & 7) - ((cur - dirs[i]) & 7)) <= 1) {
-      attack |= 1ULL << cur;
-      if (bitboard & (1ULL << cur))
-        break;
-      cur += dirs[i];
-    }
-  }
-  return attack;
-}
-const int DIAG_DIRS[4] = {9, 7, -7, -9};
-const int ORTHO_DIRS[4] = {8, 1, -1, -8};
-
 void add_pawn_moves(const Board &board, std::vector<Move> &moves) {
   Colour player = board.sideToMove;
   Colour opponent = flip(player);
@@ -106,7 +65,7 @@ void add_pawn_moves(const Board &board, std::vector<Move> &moves) {
 
 std::vector<Move> generate_pseudo_legal_moves(const Board &board,
                                               const Pocket *pocket) {
-  init_tables();
+  init_attack_tables();
   std::vector<Move> moves;
   moves.reserve(SQUARE_NO);
 
@@ -121,7 +80,7 @@ std::vector<Move> generate_pseudo_legal_moves(const Board &board,
   while (knights) {
     int from = std::countr_zero(knights);
     knights &= knights - 1;
-    Bitboard attack = KnightAttacks[from] & ~player_bb;
+    Bitboard attack = knight_attacks(from) & ~player_bb;
     while (attack) {
       int to = std::countr_zero(attack);
       attack &= attack - 1;
@@ -135,7 +94,7 @@ std::vector<Move> generate_pseudo_legal_moves(const Board &board,
   while (diagonals) {
     int from = std::countr_zero(diagonals);
     diagonals &= diagonals - 1;
-    Bitboard attack = sliding(from, all_bb, DIAG_DIRS, 4) & ~player_bb;
+    Bitboard attack = bishop_attacks(from, all_bb) & ~player_bb;
     while (attack) {
       int to = std::countr_zero(attack);
       attack &= attack - 1;
@@ -149,7 +108,7 @@ std::vector<Move> generate_pseudo_legal_moves(const Board &board,
   while (orthogonals) {
     int from = std::countr_zero(orthogonals);
     orthogonals &= orthogonals - 1;
-    Bitboard attack = sliding(from, all_bb, ORTHO_DIRS, 4) & ~player_bb;
+    Bitboard attack = rook_attacks(from, all_bb) & ~player_bb;
     while (attack) {
       int to = std::countr_zero(attack);
       attack &= attack - 1;
@@ -161,7 +120,7 @@ std::vector<Move> generate_pseudo_legal_moves(const Board &board,
   Bitboard king = board.bitboard_piece(make_piece(player, KING));
   if (king) {
     int from = std::countr_zero(king);
-    Bitboard attack = KingAttacks[from] & ~player_bb;
+    Bitboard attack = king_attacks(from) & ~player_bb;
     while (attack) {
       int to = std::countr_zero(attack);
       attack &= attack - 1;

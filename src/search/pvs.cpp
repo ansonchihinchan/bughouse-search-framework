@@ -41,6 +41,7 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
   // Null move pruning
   const Board &board = position.boards[board_of(context.root_player)];
   Colour side = colour_of_player(context.root_player);
+  bool in_check = board.is_in_check();
 
   // TODO: verification search, adaptive reduction, zugzwang detection
   if (null_move_enabled() && depth >= null_move_min_depth() &&
@@ -81,7 +82,6 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
   int move_index = 0;
 
   for (ScoredMove &scored_move : scored_moves) {
-    // TODO: LMR
     Move move = scored_move.move;
     bool capture = board.is_capture(move);
     Piece moved_piece =
@@ -90,6 +90,11 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
             : board.piece_on(move.from);
 
     BughouseUndo undo = apply_move(position, context.root_player, move);
+    bool check = position.boards[board_of(context.root_player)].is_in_check();
+    int reduction = 0;
+    if (!first_child &&
+        is_reducible(position, context, move, capture, in_check, check))
+      reduction = lmr_reduction(depth, move_index);
 
     int score;
     SearchContext next =
@@ -98,8 +103,13 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
       score = -alpha_beta(position, next, depth - 1, -beta, -alpha, ply + 1,
                           stop_token);
     } else {
-      score = -alpha_beta(position, next, depth - 1, -alpha - 1, -alpha,
-                          ply + 1, stop_token);
+      score = -alpha_beta(position, next, depth - 1 - reduction, -alpha - 1,
+                          -alpha, ply + 1, stop_token);
+
+      if (reduction > 0 && score > alpha)
+        score = -alpha_beta(position, next, depth - 1, -alpha - 1, -alpha,
+                            ply + 1, stop_token);
+
       if (score > alpha && score < beta)
         score = -alpha_beta(position, next, depth - 1, -beta, -alpha, ply + 1,
                             stop_token);

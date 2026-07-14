@@ -51,4 +51,13 @@ protected:
   virtual bool null_move_enabled() const { return false; }
   virtual int null_move_reduction() const { return 3; }
   virtual int null_move_min_depth() const { return 3; }
+
+  // LMR
+  static constexpr int LMR_MIN_DEPTH = 3;
+  static constexpr int LMR_FULL_DEPTH_MOVES = 3;
+
+  virtual int lmr_reduction(int depth, int move_index) const;
+  bool is_reducible(const BughousePosition &position,
+                    const SearchContext &context, Move move, bool capture,
+                    bool in_check, bool check) const;
 };
