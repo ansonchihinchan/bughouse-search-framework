@@ -6,6 +6,7 @@
 int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
                     int depth, int alpha, int beta, int ply,
                     std::stop_token stop_token) {
+  // TODO: Futility pruning
   stats_.nodes++;
 
   if (depth <= 0 || stop_token.stop_requested() || deadline_reached())
@@ -15,7 +16,12 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
   uint64_t key = position_hash(position);
   const TTEntry *tt_entry = tt_.probe(key);
 
+  stats_.tt_probes++;
+  if (tt_entry)
+    stats_.tt_hits++;
+
   if (tt_entry && tt_entry->depth >= depth) {
+    stats_.tt_cutoffs++;
 
     switch (tt_entry->bound) {
     case TTBound::EXACT:
@@ -35,7 +41,9 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
   // Null move pruning
   const Board &board = position.boards[board_of(context.root_player)];
   Colour side = colour_of_player(context.root_player);
+  bool in_check = board.is_in_check();
 
+  // TODO: verification search, adaptive reduction, zugzwang detection
   if (null_move_enabled() && depth >= null_move_min_depth() &&
       !board.is_in_check() && board.has_non_pawn(side) && beta < INF_SCORE &&
       !(tt_entry && tt_entry->depth >= depth - null_move_reduction() &&
@@ -71,6 +79,7 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
   int best = -INF_SCORE;
   Move best_move;
   bool first_child = true;
+  int move_index = 0;
 
   for (ScoredMove &scored_move : scored_moves) {
     Move move = scored_move.move;
@@ -81,6 +90,11 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
             : board.piece_on(move.from);
 
     BughouseUndo undo = apply_move(position, context.root_player, move);
+    bool check = position.boards[board_of(context.root_player)].is_in_check();
+    int reduction = 0;
+    if (!first_child &&
+        is_reducible(position, context, move, capture, in_check, check))
+      reduction = lmr_reduction(depth, move_index);
 
     int score;
     SearchContext next =
@@ -89,8 +103,13 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
       score = -alpha_beta(position, next, depth - 1, -beta, -alpha, ply + 1,
                           stop_token);
     } else {
-      score = -alpha_beta(position, next, depth - 1, -alpha - 1, -alpha,
-                          ply + 1, stop_token);
+      score = -alpha_beta(position, next, depth - 1 - reduction, -alpha - 1,
+                          -alpha, ply + 1, stop_token);
+
+      if (reduction > 0 && score > alpha)
+        score = -alpha_beta(position, next, depth - 1, -alpha - 1, -alpha,
+                            ply + 1, stop_token);
+
       if (score > alpha && score < beta)
         score = -alpha_beta(position, next, depth - 1, -beta, -alpha, ply + 1,
                             stop_token);
@@ -106,6 +125,8 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
 
     if (alpha >= beta) {
       stats_.beta_cutoffs++;
+      if (move_index == 0)
+        stats_.first_move_cutoffs++;
 
       if (!capture)
         update_quiet_heuristics(move, depth, ply, moved_piece);
@@ -117,6 +138,7 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
       break;
 
     first_child = false;
+    move_index++;
   }
 
   TTBound bound = best <= old_alpha ? TTBound::UPPER

@@ -21,6 +21,13 @@ struct SearchStats {
   uint64_t beta_cutoffs = 0;
   int depth_reached = 0;
   std::chrono::milliseconds elapsed{0};
+
+  // Benchmark
+  uint64_t first_move_cutoffs = 0;
+  uint64_t tt_probes = 0;
+  uint64_t tt_hits = 0;
+  uint64_t tt_cutoffs = 0;
+  std::vector<uint64_t> nodes_by_depth;
 };
 
 struct SearchContext {

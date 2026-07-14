@@ -1,4 +1,5 @@
 add_library(game
+    attacks.cpp
     board.cpp
     bughouse.cpp
     clock.cpp

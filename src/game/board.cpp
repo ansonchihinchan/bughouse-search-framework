@@ -1,4 +1,5 @@
 #include "game/board.h"
+#include "game/attacks.h"
 #include "game/movegen.h"
 #include "game/zobrist.h"
 #include <bit>
@@ -8,7 +9,7 @@
 #include <random>
 #include <sstream>
 
-#define a8 56
+constexpr int a8 = 56;
 
 Board::Board() { reset(); }
 Board::Board(const std::string &fen) { load_fen(fen); }
@@ -185,49 +186,6 @@ std::string Board::to_fen() const {
   return result;
 }
 
-namespace {
-const int DIAG_DIRS[4] = {9, 7, -7, -9};
-const int ORTHO_DIRS[4] = {8, 1, -1, -8};
-
-Bitboard ray_attacks(Square square, const int *dirs, int n_dirs,
-                     uint64_t bitboard) {
-  Bitboard attacks = 0;
-  for (int d = 0; d < n_dirs; d++) {
-    int cur = square + dirs[d];
-    while (cur >= 0 && cur < 64 &&
-           std::abs(file_of(cur) - file_of(cur - dirs[d])) <= 1) {
-      attacks |= 1ULL << cur;
-      if (bitboard & (1ULL << cur))
-        break;
-      cur += dirs[d];
-    }
-  }
-  return attacks;
-}
-
-Bitboard knight_attacks(Square square) {
-  static const int offsets[] = {17, 15, 10, 6, -6, -10, -15, -17};
-  Bitboard result = 0;
-  for (int off : offsets) {
-    int t = square + off;
-    if (t >= 0 && t < 64 && std::abs(file_of(t) - file_of(square)) <= 2)
-      result |= 1ULL << t;
-  }
-  return result;
-}
-
-Bitboard king_attacks(Square square) {
-  static const int offsets[] = {9, 8, 7, 1, -1, -7, -8, -9};
-  Bitboard result = 0;
-  for (int off : offsets) {
-    int t = square + off;
-    if (t >= 0 && t < 64 && std::abs(file_of(t) - file_of(square)) <= 1)
-      result |= 1ULL << t;
-  }
-  return result;
-}
-} // namespace
-
 bool Board::is_attacked(Square square, Colour colour) const {
   Bitboard bitboard = bitboard_all();
 
@@ -252,12 +210,12 @@ bool Board::is_attacked(Square square, Colour colour) const {
 
   Bitboard bishopsQueens = bitboards[make_piece(colour, BISHOP).index()] |
                            bitboards[make_piece(colour, QUEEN).index()];
-  if (ray_attacks(square, DIAG_DIRS, 4, bitboard) & bishopsQueens)
+  if (bishop_attacks(square, bitboard) & bishopsQueens)
     return true;
 
   Bitboard rooksQueens = bitboards[make_piece(colour, ROOK).index()] |
                          bitboards[make_piece(colour, QUEEN).index()];
-  if (ray_attacks(square, ORTHO_DIRS, 4, bitboard) & rooksQueens)
+  if (rook_attacks(square, bitboard) & rooksQueens)
     return true;
 
   return false;
