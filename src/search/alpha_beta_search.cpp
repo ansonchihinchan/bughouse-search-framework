@@ -110,8 +110,6 @@ int AlphaBetaSearch::lmr_reduction(int depth, int move_index,
   double r = 0.5 + std::log(static_cast<double>(depth)) *
                        std::log(static_cast<double>(move_index)) / 2.25;
   int reduction = static_cast<int>(r);
-  return std::clamp(reduction, 1, depth - 1);
-
   int min_reduction = 1;
   if (is_volatile) {
     reduction = std::max(0, reduction - 1);
