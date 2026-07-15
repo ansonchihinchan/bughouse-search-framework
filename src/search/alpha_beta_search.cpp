@@ -1,4 +1,5 @@
 #include "search/alpha_beta_search.h"
+#include "game/attacks.h"
 #include "game/bughouse.h"
 #include "game/movegen.h"
 #include "search/see.h"
@@ -14,6 +15,9 @@ constexpr int KILLER1_SCORE = 700000;
 constexpr int KILLER2_SCORE = 690000;
 constexpr int LOSING_CAPTURE_BASE = -900000;
 
+constexpr int MATING_THREAT_BONUS = 50000;
+constexpr int DELTA_MARGIN = 200;
+
 // Cheap check for mating threat
 bool creates_mating_threat(const Board &board, Move move, Colour mover) {
   Colour enemy = flip(mover);
@@ -24,6 +28,35 @@ bool creates_mating_threat(const Board &board, Move move, Colour mover) {
   return std::abs(file_of(move.to) - file_of(ksq)) <= 1 &&
          std::abs(rank_of(move.to) - rank_of(ksq)) <= 1;
 }
+
+bool drop_gives_check(const Board &board, PieceType pt, Square to,
+                      Colour colour) {
+  Colour enemy = flip(colour);
+  Bitboard king_bb = board.bitboard_piece(make_piece(enemy, KING));
+  if (!king_bb)
+    return false;
+  Square ksq = static_cast<Square>(std::countr_zero(king_bb));
+  Bitboard occ = board.bitboard_all();
+
+  switch (pt) {
+  case KNIGHT:
+    return (knight_attacks(to) & king_bb) != 0;
+  case BISHOP:
+    return (bishop_attacks(to, occ) & king_bb) != 0;
+  case ROOK:
+    return (rook_attacks(to, occ) & king_bb) != 0;
+  case QUEEN:
+    return ((bishop_attacks(to, occ) | rook_attacks(to, occ)) & king_bb) != 0;
+  case PAWN: {
+    int file_diff = std::abs(file_of(ksq) - file_of(to));
+    int rank_diff = rank_of(ksq) - rank_of(to);
+    int expected_rank_diff = (colour == WHITE) ? 1 : -1;
+    return file_diff == 1 && rank_diff == expected_rank_diff;
+  }
+  default:
+    return false;
+  }
+}
 } // namespace
 
 void AlphaBetaSearch::clear_killers() {
@@ -32,29 +65,58 @@ void AlphaBetaSearch::clear_killers() {
 }
 
 void AlphaBetaSearch::age_history() {
-  for (auto &row : history_)
+  for (auto &row : ordinary_history_)
+    for (auto &value : row)
+      value /= 2;
+
+  for (auto &row : attacking_drop_history_)
+    for (auto &value : row)
+      value /= 2;
+
+  for (auto &row : defensive_drop_history_)
     for (auto &value : row)
       value /= 2;
 }
 
+bool AlphaBetaSearch::is_volatile(const BughousePosition &position) {
+  // Cheap check if any player currently holds a queen or rook in their pocket
+  for (const Pocket &pocket : position.pockets)
+    if (pocket.contains(QUEEN) || pocket.contains(ROOK))
+      return true;
+  return false;
+}
+
 void AlphaBetaSearch::update_quiet_heuristics(Move move, int depth, int ply,
-                                              Piece moved_piece) {
+                                              Piece moved_piece,
+                                              bool in_check) {
   if (move != killer1_[ply]) {
     killer2_[ply] = killer1_[ply];
     killer1_[ply] = move;
   }
 
-  history_[moved_piece.index()][move.to] += depth * depth;
+  if (move.is_drop()) {
+    auto &table = in_check ? defensive_drop_history_ : attacking_drop_history_;
+    table[moved_piece.index()][move.to] += depth * depth;
+  } else {
+    ordinary_history_[moved_piece.index()][move.to] += depth * depth;
+  }
 }
 
-int AlphaBetaSearch::lmr_reduction(int depth, int move_index) const {
+int AlphaBetaSearch::lmr_reduction(int depth, int move_index,
+                                   bool is_volatile) const {
   if (depth < LMR_MIN_DEPTH || move_index < LMR_FULL_DEPTH_MOVES)
     return 0;
 
   double r = 0.5 + std::log(static_cast<double>(depth)) *
                        std::log(static_cast<double>(move_index)) / 2.25;
   int reduction = static_cast<int>(r);
-  return std::clamp(reduction, 1, depth - 1);
+  int min_reduction = 1;
+  if (is_volatile) {
+    reduction = std::max(0, reduction - 1);
+    min_reduction = 0;
+  }
+
+  return std::clamp(reduction, min_reduction, depth - 1);
 }
 
 bool AlphaBetaSearch::is_reducible(const BughousePosition &position,
@@ -78,6 +140,8 @@ void AlphaBetaSearch::order_moves(const BughousePosition &position,
                                   std::vector<ScoredMove> &scored_moves,
                                   const TTEntry *tt_entry, int ply) const {
   const Board &board = position.boards[board_of(context.root_player)];
+  Colour mover_colour = colour_of_player(context.root_player);
+  bool in_check = board.is_in_check();
 
   for (ScoredMove &scored_move : scored_moves) {
     const Move &move = scored_move.move;
@@ -95,16 +159,33 @@ void AlphaBetaSearch::order_moves(const BughousePosition &position,
       continue;
     }
 
+    if (move.is_drop() &&
+        drop_gives_check(board, move.drop_pt, move.to, mover_colour)) {
+      scored_move.score = WINNING_CAPTURE_BASE +
+                          SEE::PIECE_VALUE[move.drop_pt] +
+                          SEE::POCKET_BONUS[move.drop_pt];
+      continue;
+    }
+
+    int bonus = creates_mating_threat(board, move, mover_colour)
+                    ? MATING_THREAT_BONUS
+                    : 0;
+
     if (move == killer1_[ply]) {
       scored_move.score = KILLER1_SCORE;
     } else if (move == killer2_[ply]) {
       scored_move.score = KILLER2_SCORE;
+    } else if (move.is_drop()) {
+      Piece moved_pice = make_piece(mover_colour, move.drop_pt);
+      const auto &table =
+          in_check ? defensive_drop_history_ : attacking_drop_history_;
+      scored_move.score = table[moved_pice.index()][move.to] + bonus;
     } else {
       Piece moved_piece =
           move.is_drop()
               ? make_piece(colour_of_player(context.root_player), move.drop_pt)
               : board.piece_on(move.from);
-      scored_move.score = history_[moved_piece.index()][move.to];
+      scored_move.score = ordinary_history_[moved_piece.index()][move.to];
     }
 
     // TODO: Counter move heuristic
@@ -155,6 +236,7 @@ int AlphaBetaSearch::alpha_beta(BughousePosition &position,
 
   const Board &board = position.boards[board_of(context.root_player)];
   bool in_check = board.is_in_check();
+  bool is_volatile = this->is_volatile(position);
   auto moves = generate_legal_moves(position, context.root_player);
 
   // checkmate, stalemate
@@ -188,7 +270,7 @@ int AlphaBetaSearch::alpha_beta(BughousePosition &position,
         make_context(context.clock, next_player(context.root_player));
     int reduction = 0;
     if (is_reducible(position, context, move, capture, in_check, check))
-      reduction = lmr_reduction(depth, move_index);
+      reduction = lmr_reduction(depth, move_index, is_volatile);
 
     int score;
 
@@ -219,7 +301,7 @@ int AlphaBetaSearch::alpha_beta(BughousePosition &position,
         stats_.first_move_cutoffs++;
 
       if (!capture)
-        update_quiet_heuristics(move, depth, ply, moved_piece);
+        update_quiet_heuristics(move, depth, ply, moved_piece, in_check);
 
       break;
     }
@@ -281,7 +363,7 @@ SearchResult AlphaBetaSearch::search_root(const BughousePosition &position,
         make_context(context.clock, next_player(context.root_player));
     int reduction = 0;
     if (is_reducible(working, context, move, capture, in_check, check))
-      reduction = lmr_reduction(depth, move_index);
+      reduction = lmr_reduction(depth, move_index, is_volatile(position));
 
     int score;
     if (reduction > 0) {
@@ -309,7 +391,7 @@ SearchResult AlphaBetaSearch::search_root(const BughousePosition &position,
         stats_.first_move_cutoffs++;
 
       if (!capture)
-        update_quiet_heuristics(move, depth, 0, moved_piece);
+        update_quiet_heuristics(move, depth, 0, moved_piece, in_check);
       break;
     }
 
@@ -326,7 +408,7 @@ SearchResult AlphaBetaSearch::search_root(const BughousePosition &position,
 int AlphaBetaSearch::quiescence(BughousePosition &position,
                                 const SearchContext &context, int alpha,
                                 int beta, std::stop_token stop_token) {
-  // TODO: delta pruning, capture ordering, check extensions
+  // TODO: check extensions
   stats_.nodes++;
 
   if (stop_token.stop_requested() || deadline_reached())
@@ -334,6 +416,7 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
 
   const Board &board = position.boards[board_of(context.root_player)];
   bool in_check = board.is_in_check();
+  Colour mover_colour = colour_of_player(context.root_player);
 
   int stand_pat = 0;
 
@@ -346,24 +429,48 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
     alpha = std::max(alpha, stand_pat);
   }
 
-  // TODO: Delta pruning
   std::vector<Move> moves = generate_legal_moves(position, context.root_player);
 
   if (in_check) {
     if (moves.empty())
       return -INF_SCORE + 1;
   } else {
-    std::erase_if(moves,
-                  [&board](const Move &m) { return !board.is_capture(m); });
+    // Keep only captures and forcing drops
+    std::erase_if(moves, [&](const Move &m) {
+      return !((board.is_capture(m)) ||
+               (m.is_drop() &&
+                drop_gives_check(board, m.drop_pt, m.to, mover_colour)));
+    });
 
     // SEE filtering
     std::erase_if(moves, [&board](const Move &m) {
-      return SEE::see_score(board, m) < -50;
+      return board.is_capture(m) && SEE::see_score(board, m) < -50;
+    });
+
+    // Delta pruning
+    std::erase_if(moves, [&](const Move &m) {
+      if (m.is_drop())
+        return false;
+
+      int captured_value = (m.type == EN_PASSANT)
+                               ? SEE::PIECE_VALUE[PAWN]
+                               : SEE::PIECE_VALUE[board.piece_on(m.to).type];
+      int promo_gain = (m.type == PROMOTE) ? SEE::PIECE_VALUE[m.promote_pt] -
+                                                 SEE::PIECE_VALUE[PAWN]
+                                           : 0;
+
+      return stand_pat + captured_value + promo_gain + DELTA_MARGIN < alpha;
     });
   }
 
-  std::sort(moves.begin(), moves.end(), [&board](const Move &a, const Move &b) {
-    return SEE::see_score(board, a) > SEE::see_score(board, b);
+  std::sort(moves.begin(), moves.end(), [&](const Move &a, const Move &b) {
+    int score_a =
+        a.is_drop() ? SEE::PIECE_VALUE[a.drop_pt] + SEE::POCKET_BONUS[a.drop_pt]
+                    : SEE::see_score(board, a);
+    int score_b =
+        b.is_drop() ? SEE::PIECE_VALUE[b.drop_pt] + SEE::POCKET_BONUS[b.drop_pt]
+                    : SEE::see_score(board, b);
+    return score_a > score_b;
   });
 
   for (Move move : moves) {

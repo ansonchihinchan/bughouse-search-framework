@@ -39,13 +39,16 @@ protected:
   std::array<Move, MAX_PLY> killer2_{};
 
   // TODO: history(prev_move, curr_move)
-  // TODO: separate history structures for ordinary moves, drops(attack/defense)
-  std::array<std::array<int, SQUARE_NO>, PIECE_NO> history_{};
+  std::array<std::array<int, SQUARE_NO>, PIECE_NO> ordinary_history_{};
+  // drops played when not in check
+  std::array<std::array<int, SQUARE_NO>, PIECE_NO> attacking_drop_history_{};
+  // drops played when in check
+  std::array<std::array<int, SQUARE_NO>, PIECE_NO> defensive_drop_history_{};
 
   void clear_killers() override;
   void age_history() override;
-  void update_quiet_heuristics(Move move, int depth, int ply,
-                               Piece moved_piece);
+  void update_quiet_heuristics(Move move, int depth, int ply, Piece moved_piece,
+                               bool in_check);
 
   // NullMoveSearch overrides
   virtual bool null_move_enabled() const { return false; }
@@ -56,8 +59,10 @@ protected:
   static constexpr int LMR_MIN_DEPTH = 3;
   static constexpr int LMR_FULL_DEPTH_MOVES = 3;
 
-  virtual int lmr_reduction(int depth, int move_index) const;
+  virtual int lmr_reduction(int depth, int move_index, bool is_volatile) const;
   bool is_reducible(const BughousePosition &position,
                     const SearchContext &context, Move move, bool capture,
                     bool in_check, bool check) const;
+
+  static bool is_volatile(const BughousePosition &position);
 };
