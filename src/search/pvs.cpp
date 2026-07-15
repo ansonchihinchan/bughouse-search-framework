@@ -42,10 +42,16 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
   const Board &board = position.boards[board_of(context.root_player)];
   Colour side = colour_of_player(context.root_player);
   bool in_check = board.is_in_check();
+  bool is_volatile = this->is_volatile(position);
+
+  const Pocket &opp_pocket =
+      position.pockets[to_int(next_player(context.root_player))];
+  bool opp_heavy_pocket =
+      opp_pocket.contains(QUEEN) || opp_pocket.contains(ROOK);
 
   // TODO: verification search, adaptive reduction, zugzwang detection
-  if (null_move_enabled() && depth >= null_move_min_depth() &&
-      !board.is_in_check() && board.has_non_pawn(side) && beta < INF_SCORE &&
+  if (null_move_enabled() && depth >= null_move_min_depth() && !in_check &&
+      board.has_non_pawn(side) && beta < INF_SCORE &&
       !(tt_entry && tt_entry->depth >= depth - null_move_reduction() &&
         tt_entry->bound == TTBound::UPPER && tt_entry->score < beta)) {
     BoardUndo null_undo = make_null_move(position, context.root_player);
@@ -79,6 +85,7 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
   int best = -INF_SCORE;
   Move best_move;
   bool first_child = true;
+  bool completed = true;
   int move_index = 0;
 
   for (ScoredMove &scored_move : scored_moves) {
@@ -94,7 +101,7 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
     int reduction = 0;
     if (!first_child &&
         is_reducible(position, context, move, capture, in_check, check))
-      reduction = lmr_reduction(depth, move_index);
+      reduction = lmr_reduction(depth, move_index, in_check);
 
     int score;
     SearchContext next =
@@ -129,13 +136,15 @@ int PVS::alpha_beta(BughousePosition &position, const SearchContext &context,
         stats_.first_move_cutoffs++;
 
       if (!capture)
-        update_quiet_heuristics(move, depth, ply, moved_piece);
+        update_quiet_heuristics(move, depth, ply, moved_piece, in_check);
 
       break;
     }
 
-    if (stop_token.stop_requested() || deadline_reached())
+    if (stop_token.stop_requested() || deadline_reached()) {
+      completed = false;
       break;
+    }
 
     first_child = false;
     move_index++;
@@ -154,6 +163,7 @@ SearchResult PVS::search_root(const BughousePosition &position,
   SearchResult result;
   BughousePosition working = position;
   const Board &board = working.boards[board_of(context.root_player)];
+  bool in_check = board.is_in_check();
 
   auto moves = generate_legal_moves(working, context.root_player);
   std::vector<ScoredMove> scored_moves;
@@ -204,7 +214,7 @@ SearchResult PVS::search_root(const BughousePosition &position,
 
     if (alpha >= beta) {
       if (!capture)
-        update_quiet_heuristics(move, depth, 0, moved_piece);
+        update_quiet_heuristics(move, depth, 0, moved_piece, in_check);
       break;
     }
 
