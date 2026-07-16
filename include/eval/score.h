@@ -2,6 +2,8 @@
 
 class EvalScore {
 public:
+  static constexpr int MAX_PHASE = 24;
+
   constexpr EvalScore(int score) : mid_game_(score), end_game_(score) {}
 
   constexpr EvalScore(int mid_game, int end_game)
@@ -16,7 +18,9 @@ public:
   friend EvalScore operator+(EvalScore lhs, const EvalScore &rhs);
   friend EvalScore operator-(EvalScore lhs, const EvalScore &rhs);
 
-  constexpr int final(int phase) const;
+  constexpr int final(int phase) const {
+    return (mid_game_ * phase + end_game_ * (MAX_PHASE - phase)) / MAX_PHASE;
+  }
 
 private:
   int mid_game_;

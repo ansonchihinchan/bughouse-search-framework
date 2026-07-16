@@ -12,5 +12,6 @@ enable_testing()
 
 add_subdirectory(src/game)
 add_subdirectory(src/search)
+add_subdirectory(src/eval)
 add_subdirectory(test/game)
 add_subdirectory(bench)

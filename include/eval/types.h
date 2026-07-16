@@ -1,22 +1,30 @@
 #pragma once
 
+#include "eval/score.h"
 #include "game/bughouse.h"
 #include "search/types.h"
+#include <array>
+
+constexpr int PHASE_WEIGHT[PIECE_TYPE_NO] = {0, 0, 1, 1, 2, 4, 0};
+
+struct BoardMaterial {
+  int phase[COLOUR_NO] = {0, 0};
+};
 
 struct MaterialInfo {
-  int value[2];
-  int phase;
+  std::array<BoardMaterial, BOARD_NO> boards{};
+  int phase = EvalScore::MAX_PHASE;
 };
 
 struct PawnInfo {
-  Bitboard passed[2];
-  Bitboard isolated[2];
-  Bitboard doubled[2];
+  std::array<std::array<Bitboard, COLOUR_NO>, BOARD_NO> passed{};
+  std::array<std::array<Bitboard, COLOUR_NO>, BOARD_NO> isolated{};
+  std::array<std::array<Bitboard, COLOUR_NO>, BOARD_NO> doubled{};
 };
 
 struct AttackInfo {
-  Bitboard attacks[2];
-  Bitboard kingZone[2];
+  std::array<std::array<Bitboard, COLOUR_NO>, BOARD_NO> attacks{};
+  std::array<std::array<Bitboard, COLOUR_NO>, BOARD_NO> kingZone{};
 };
 
 struct EvalContext {
@@ -28,7 +36,5 @@ struct EvalContext {
   AttackInfo attack_info;
 };
 
-constexpr EvalContext to_context(const BughousePosition &position,
-                                 const SearchContext &search) {
-  // TODO
-}
+EvalContext to_context(const BughousePosition &position,
+                       const SearchContext &search);

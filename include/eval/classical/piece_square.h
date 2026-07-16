@@ -2,7 +2,7 @@
 
 #include "eval/classical.h"
 
-class PieceSquareEvaluator : EvalFeature {
+class PieceSquareEvaluator : public EvalFeature {
   EvalScore evaluate(const EvalContext &context) const override;
 
   const char *name() const override { return "piece_square"; }

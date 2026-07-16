@@ -41,6 +41,25 @@ inline PlayerId next_player(PlayerId player) {
   return player ^ 1;
 }
 
+inline PlayerId player_on_board(int board_idx, Colour colour) {
+  if (board_idx == 0) {
+    return to_player(colour == WHITE ? 0 : 1);
+  } else {
+    return to_player(colour == WHITE ? 3 : 2);
+  }
+}
+
+// Colour of player's team on board board_idx
+inline Colour team_colour(PlayerId player, int board_idx) {
+  return colour_of_player((board_of(player) == board_idx) ? player
+                                                          : partner_of(player));
+}
+
+// Returns +1 if player 2 is on player1's team and -1 otherwise
+inline int team_sign(PlayerId player1, PlayerId player2) {
+  return (player2 == player1 || player2 == partner_of(player1)) ? 1 : -1;
+}
+
 struct BughouseState {
   BughousePosition position;
   BughouseClock clock;
