@@ -2,7 +2,7 @@
 
 #include "eval/classical.h"
 
-class SpaceEvaluator : EvalFeature {
+class SpaceEvaluator : public EvalFeature {
   EvalScore evaluate(const EvalContext &context) const override;
 
   const char *name() const override { return "space"; }
