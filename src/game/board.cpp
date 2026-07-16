@@ -9,8 +9,6 @@
 #include <random>
 #include <sstream>
 
-constexpr int a8 = 56;
-
 Board::Board() { reset(); }
 Board::Board(const std::string &fen) { load_fen(fen); }
 

@@ -5,7 +5,7 @@
 class NullMoveSearch : public PVS {
 public:
   using PVS::PVS;
-  const char *name() const override { return "null_move"; }
+  const std::string_view name() const override { return "null_move"; }
 
 protected:
   bool null_move_enabled() const override { return true; }

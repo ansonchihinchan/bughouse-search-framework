@@ -5,7 +5,7 @@
 class PVS : public AlphaBetaSearch {
 public:
   using AlphaBetaSearch::AlphaBetaSearch;
-  const char *name() const override { return "pvs"; }
+  const std::string_view name() const override { return "pvs"; }
 
 protected:
   int alpha_beta(BughousePosition &position, const SearchContext &context,

@@ -22,7 +22,7 @@ public:
                               const SearchLimits &limits,
                               std::stop_token stop_token) = 0;
 
-  virtual const char *name() const = 0;
+  virtual const std::string_view name() const = 0;
 
 protected:
   const Evaluator &evaluator_;

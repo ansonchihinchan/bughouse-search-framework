@@ -8,7 +8,6 @@
 
 // TODO: possibly moved to a core layer
 namespace {
-constexpr int PIECE_VALUE[PIECE_TYPE_NO] = {0, 100, 320, 330, 550, 900, 20000};
 constexpr int TT_MOVE_SCORE = 1000000;
 constexpr int WINNING_CAPTURE_BASE = 800000;
 constexpr int KILLER1_SCORE = 700000;
