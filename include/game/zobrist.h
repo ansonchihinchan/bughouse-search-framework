@@ -13,7 +13,7 @@ constexpr int MAX_POCKET_COUNT = 10;
 extern uint64_t pieceSquare[PIECE_NO][SQUARE_NO];
 extern uint64_t side;
 extern uint64_t castlingRights[];
-extern uint64_t enPassantFile[8];
+extern uint64_t enPassantFile[ENPASSANT_FILE_NO];
 
 // pocket[player][piece_type][count]
 extern uint64_t pocket[PLAYER_NO][PIECE_TYPE_NO][MAX_POCKET_COUNT];

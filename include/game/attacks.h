@@ -4,8 +4,8 @@
 #include "game/types.h"
 #include <array>
 
-inline constexpr int DIAG_DIRS[4] = {9, 7, -7, -9};
-inline constexpr int ORTHO_DIRS[4] = {8, 1, -1, -8};
+inline constexpr std::array<int, 4> DIAG_DIRS{9, 7, -7, -9};
+inline constexpr std::array<int, 4> ORTHO_DIRS{8, 1, -1, -8};
 
 void init_attack_tables();
 

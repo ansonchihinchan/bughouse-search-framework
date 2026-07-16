@@ -6,7 +6,7 @@
 class AlphaBetaSearch : public TreeSearch {
 public:
   using TreeSearch::TreeSearch;
-  const char *name() const override { return "alpha_beta"; }
+  const std::string_view name() const override { return "alpha_beta"; }
 
 protected:
   SearchResult search_root(const BughousePosition &position,

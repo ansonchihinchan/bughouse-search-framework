@@ -125,7 +125,8 @@ BenchRow run_one(const std::string &algorithm, Search &search,
   limits.move_time = std::chrono::milliseconds(args.time_ms);
 
   std::stop_source stop;
-  SearchResult result = search.search(position, context, limits, stop.get_token());
+  SearchResult result =
+      search.search(position, context, limits, stop.get_token());
 
   BenchRow row;
   row.position = spec.name;
@@ -134,43 +135,43 @@ BenchRow run_one(const std::string &algorithm, Search &search,
   row.depth_reached = result.stats.depth_reached;
   row.elapsed_ms = result.stats.elapsed.count();
   row.nps = row.elapsed_ms > 0
-               ? static_cast<double>(row.nodes) * 1000.0 / row.elapsed_ms
-               : static_cast<double>(row.nodes); // finished in <1ms
+                ? static_cast<double>(row.nodes) * 1000.0 / row.elapsed_ms
+                : static_cast<double>(row.nodes); // finished in <1ms
   row.beta_cutoffs = result.stats.beta_cutoffs;
   row.null_move_cutoffs = result.stats.null_move_cutoffs;
   row.tt_cutoffs = result.stats.tt_cutoffs;
   row.tt_probes = result.stats.tt_probes;
   row.tt_hits = result.stats.tt_hits;
   row.tt_hit_rate = row.tt_probes > 0
-                       ? static_cast<double>(row.tt_hits) / row.tt_probes
-                       : 0.0;
+                        ? static_cast<double>(row.tt_hits) / row.tt_probes
+                        : 0.0;
   row.first_move_cutoffs = result.stats.first_move_cutoffs;
   row.move_ordering_quality =
       row.beta_cutoffs > 0
           ? static_cast<double>(row.first_move_cutoffs) / row.beta_cutoffs
           : 0.0;
   row.effective_branching_factor = compute_ebf(result.stats.nodes_by_depth);
-  row.best_move = result.best_move.is_none() ? "(none)" : result.best_move.to_string();
+  row.best_move =
+      result.best_move.is_none() ? "(none)" : result.best_move.to_string();
   row.score = result.score;
   return row;
 }
 
 void print_table(const std::vector<BenchRow> &rows) {
-  std::printf(
-      "%-20s %-11s %10s %12s %5s %8s %6s %6s %7s %7s %6s %7s\n", "position",
-      "algorithm", "nodes", "nps", "depth", "time_ms", "beta_c", "nm_c",
-      "tt_hit%", "order%", "ebf", "move");
+  std::printf("%-20s %-11s %10s %12s %5s %8s %6s %6s %7s %7s %6s %7s\n",
+              "position", "algorithm", "nodes", "nps", "depth", "time_ms",
+              "beta_c", "nm_c", "tt_hit%", "order%", "ebf", "move");
   std::printf("%s\n", std::string(120, '-').c_str());
   for (const BenchRow &r : rows) {
     std::printf("%-20s %-11s %10llu %12.0f %5d %8lld %6llu %6llu %6.1f%% "
-               "%6.1f%% %6.2f %7s\n",
-               r.position.c_str(), r.algorithm.c_str(),
-               static_cast<unsigned long long>(r.nodes), r.nps,
-               r.depth_reached, static_cast<long long>(r.elapsed_ms),
-               static_cast<unsigned long long>(r.beta_cutoffs),
-               static_cast<unsigned long long>(r.null_move_cutoffs),
-               r.tt_hit_rate * 100.0, r.move_ordering_quality * 100.0,
-               r.effective_branching_factor, r.best_move.c_str());
+                "%6.1f%% %6.2f %7s\n",
+                r.position.c_str(), r.algorithm.c_str(),
+                static_cast<unsigned long long>(r.nodes), r.nps,
+                r.depth_reached, static_cast<long long>(r.elapsed_ms),
+                static_cast<unsigned long long>(r.beta_cutoffs),
+                static_cast<unsigned long long>(r.null_move_cutoffs),
+                r.tt_hit_rate * 100.0, r.move_ordering_quality * 100.0,
+                r.effective_branching_factor, r.best_move.c_str());
   }
 }
 
@@ -205,9 +206,10 @@ BenchRow aggregate(const std::string &algorithm,
 
   agg.elapsed_ms = total_ms;
   agg.nps = total_ms > 0 ? static_cast<double>(agg.nodes) * 1000.0 / total_ms
-                        : static_cast<double>(agg.nodes);
-  agg.tt_hit_rate =
-      agg.tt_probes > 0 ? static_cast<double>(agg.tt_hits) / agg.tt_probes : 0.0;
+                         : static_cast<double>(agg.nodes);
+  agg.tt_hit_rate = agg.tt_probes > 0
+                        ? static_cast<double>(agg.tt_hits) / agg.tt_probes
+                        : 0.0;
   agg.move_ordering_quality =
       agg.beta_cutoffs > 0
           ? static_cast<double>(agg.first_move_cutoffs) / agg.beta_cutoffs
@@ -225,18 +227,18 @@ void write_csv(const std::string &path, const std::vector<BenchRow> &rows) {
 
   std::ofstream out(path);
   out << "position,algorithm,nodes,nps,depth_reached,elapsed_ms,"
-        "beta_cutoffs,null_move_cutoffs,tt_cutoffs,tt_probes,tt_hits,"
-        "tt_hit_rate,first_move_cutoffs,move_ordering_quality,"
-        "effective_branching_factor,score,best_move\n";
+         "beta_cutoffs,null_move_cutoffs,tt_cutoffs,tt_probes,tt_hits,"
+         "tt_hit_rate,first_move_cutoffs,move_ordering_quality,"
+         "effective_branching_factor,score,best_move\n";
   out << std::fixed << std::setprecision(6);
   for (const BenchRow &r : rows) {
     out << r.position << ',' << r.algorithm << ',' << r.nodes << ',' << r.nps
         << ',' << r.depth_reached << ',' << r.elapsed_ms << ','
         << r.beta_cutoffs << ',' << r.null_move_cutoffs << ',' << r.tt_cutoffs
-        << ',' << r.tt_probes << ',' << r.tt_hits << ',' << r.tt_hit_rate
-        << ',' << r.first_move_cutoffs << ',' << r.move_ordering_quality
-        << ',' << r.effective_branching_factor << ',' << r.score << ','
-        << r.best_move << '\n';
+        << ',' << r.tt_probes << ',' << r.tt_hits << ',' << r.tt_hit_rate << ','
+        << r.first_move_cutoffs << ',' << r.move_ordering_quality << ','
+        << r.effective_branching_factor << ',' << r.score << ',' << r.best_move
+        << '\n';
   }
 }
 
@@ -249,7 +251,8 @@ std::string timestamped_path(const std::string &base) {
   stamp << std::put_time(&tm, "%Y%m%d-%H%M%S");
 
   std::filesystem::path stamped =
-      p.parent_path() / (p.stem().string() + "-" + stamp.str() + p.extension().string());
+      p.parent_path() /
+      (p.stem().string() + "-" + stamp.str() + p.extension().string());
   return stamped.string();
 }
 
@@ -286,7 +289,8 @@ int main(int argc, char **argv) {
     algorithms.push_back(std::make_unique<NullMoveSearch>(evaluator));
 
     for (auto &search : algorithms)
-      rows.push_back(run_one(search->name(), *search, spec, position, args));
+      rows.push_back(
+          run_one(std::string(search->name()), *search, spec, position, args));
   }
 
   print_table(rows);

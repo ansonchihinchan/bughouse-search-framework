@@ -7,9 +7,11 @@ uint64_t KingAttacks[SQUARE_NO];
 
 bool tables_init = false;
 
-Bitboard sliding(Square square, Bitboard bitboard, const int *dirs, int n) {
+template <size_t N>
+Bitboard sliding(Square square, Bitboard bitboard,
+                 const std::array<int, N> dirs) {
   Bitboard attack = 0;
-  for (int i = 0; i < n; i++) {
+  for (int i = 0; i < N; i++) {
     int cur = square + dirs[i];
     while (cur >= 0 && cur < 64 &&
            std::abs((cur & 7) - ((cur - dirs[i]) & 7)) <= 1) {
@@ -48,11 +50,11 @@ Bitboard knight_attacks(Square square) { return KnightAttacks[square]; }
 Bitboard king_attacks(Square square) { return KingAttacks[square]; }
 
 Bitboard bishop_attacks(Square square, Bitboard bitboard) {
-  return sliding(square, bitboard, DIAG_DIRS, 4);
+  return sliding(square, bitboard, DIAG_DIRS);
 }
 
 Bitboard rook_attacks(Square square, Bitboard bitboard) {
-  return sliding(square, bitboard, ORTHO_DIRS, 4);
+  return sliding(square, bitboard, ORTHO_DIRS);
 }
 
 Bitboard queen_attacks(Square square, Bitboard bitboard) {
