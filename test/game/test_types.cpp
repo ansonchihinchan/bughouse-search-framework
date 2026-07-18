@@ -18,7 +18,6 @@ TEST_CASE("rank_of/file_of/to_square round-trip", "[types]") {
     }
   }
 
-  // Spot checks against known square indices.
   REQUIRE(to_square(0, 0) == 0);  // a1
   REQUIRE(to_square(7, 7) == 63); // h8
   REQUIRE(to_square(4, 1) == 12); // e2
@@ -52,7 +51,6 @@ TEST_CASE("Piece::index is unique per (colour, type) and matches layout",
   REQUIRE(make_piece(BLACK, PAWN).index() == 6);
   REQUIRE(make_piece(BLACK, KING).index() == 11);
 
-  // No two distinct (colour, type) pairs should collide.
   std::vector<int> seen;
   for (Colour c : {WHITE, BLACK}) {
     for (PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING}) {
@@ -112,7 +110,7 @@ TEST_CASE("Move::drop formats as Piece@square and is flagged as a drop",
   REQUIRE(m.to_string() == "N@e4");
   REQUIRE(m.is_drop());
   REQUIRE(m.from == -1);
-  REQUIRE_FALSE(m.is_none()); // drops are never "none" despite from == -1
+  REQUIRE_FALSE(m.is_none());
 }
 
 TEST_CASE("Move::is_none only true for default-constructed non-drop moves",
@@ -152,7 +150,7 @@ TEST_CASE("PlayerId converts to/from int and compares against raw ints",
 
 TEST_CASE("PlayerId::operator^ flips side and partner as expected",
           "[types][playerid]") {
-  // Board 0: (0, 1) -- toggling ^1 flips the side to move on a board.
+  // Board 0: (0, 1) 
   REQUIRE((to_player(0) ^ 1) == 1);
   REQUIRE((to_player(1) ^ 1) == 0);
 
@@ -160,7 +158,7 @@ TEST_CASE("PlayerId::operator^ flips side and partner as expected",
   REQUIRE((to_player(2) ^ 1) == 3);
   REQUIRE((to_player(3) ^ 1) == 2);
 
-  // Partners: (0, 2), (1, 3) -- toggling ^2 crosses to the partner board.
+  // Partners: (0, 2), (1, 3)
   REQUIRE((to_player(0) ^ 2) == 2);
   REQUIRE((to_player(1) ^ 2) == 3);
   REQUIRE((to_player(2) ^ 2) == 0);

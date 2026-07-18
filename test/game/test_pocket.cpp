@@ -44,7 +44,6 @@ TEST_CASE("Pocket::remove decreases count and never goes negative",
   p.remove(ROOK);
   REQUIRE(p.count(ROOK) == 0);
 
-  // Removing from an already-empty slot must not underflow.
   p.remove(ROOK);
   REQUIRE(p.count(ROOK) == 0);
 }
@@ -78,6 +77,5 @@ TEST_CASE("Pocket::print lists one letter per held piece", "[pocket]") {
   p.print();
   std::cout.rdbuf(old);
 
-  // Order follows PAWN..QUEEN, then repetitions within a type.
   REQUIRE(captured.str() == "PPN\n");
 }

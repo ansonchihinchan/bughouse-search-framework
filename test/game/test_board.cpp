@@ -33,7 +33,7 @@ TEST_CASE("load_fen rejects malformed FEN strings", "[board][fen]") {
   SECTION("garbage input") { REQUIRE_FALSE(b.load_fen("not a fen at all")); }
 
   SECTION("missing a king") {
-    // Only a white king present -- invalid, must be rejected.
+    // Only white king present
     REQUIRE_FALSE(b.load_fen("4r3/8/8/8/8/8/8/4K3 w - - 0 1"));
   }
 
@@ -96,8 +96,7 @@ TEST_CASE("Single pawn push does not set an en passant square", "[board]") {
 }
 
 TEST_CASE("Promotion replaces the pawn with the chosen piece", "[board]") {
-  // White pawn one step from promoting; both kings present so the FEN is
-  // valid.
+  // White pawn one step from promoting
   Board b("7k/P7/8/8/8/8/8/7K w - - 0 1");
 
   Move promo = Move::promote(to_square(0, 6), to_square(0, 7), QUEEN);
@@ -120,7 +119,7 @@ TEST_CASE("Promotion undo restores the original pawn", "[board]") {
 
 TEST_CASE("Promotion that also captures restores both pieces on undo",
           "[board]") {
-  // White pawn on b7 can promote by capturing the rook on a8.
+  // White pawn on b7 can promote by capturing the rook on a8
   Board b("r6k/1P6/8/8/8/8/8/7K w - - 0 1");
   std::string before = b.to_fen();
 
@@ -147,7 +146,7 @@ TEST_CASE("Kingside castling moves both king and rook", "[board]") {
   REQUIRE(b.piece_on(to_square(5, 0)) == make_piece(WHITE, ROOK)); // f1
   REQUIRE(b.is_empty(to_square(4, 0)));                            // e1
   REQUIRE(b.is_empty(to_square(7, 0)));                            // h1
-  // Moving the king forfeits both white castling rights.
+  // Moving the king forfeits both white castling rights
   REQUIRE((b.castlingRights & WHITE_CASTLING) == NO_CASTLING);
   REQUIRE((b.castlingRights & BLACK_CASTLING) == BLACK_CASTLING);
 }
@@ -178,7 +177,7 @@ TEST_CASE("Moving a rook off its home square forfeits only that side",
 }
 
 TEST_CASE("En passant capture removes the passed pawn", "[board]") {
-  // White pawn on e5, black just double-pushed d7-d5, en passant available.
+  // White pawn on e5, black last move d7d5, en passant available
   Board b("7k/8/8/3pP3/8/8/8/7K w - d6 0 2");
   Move ep = Move::en_passant(to_square(4, 4), to_square(3, 5)); // e5xd6
 
@@ -203,8 +202,7 @@ TEST_CASE("is_attacked reports squares covered by a rook on an open file",
 }
 
 TEST_CASE("is_checkmate recognizes Fool's Mate", "[board][mate]") {
-  // Verified against this engine's own move generator:
-  // 1. f3 e5 2. g4 Qh4#
+  // Verified against movegen: 1. f3 e5 2. g4 Qh4#
   Board b("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 2 3");
 
   REQUIRE(b.is_in_check());
