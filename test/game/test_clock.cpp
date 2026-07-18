@@ -55,7 +55,7 @@ TEST_CASE("stop() is a no-op if the given player isn't the active one",
   BughouseClock c;
   c.set(1000, 100);
   c.start(to_player(0));
-  c.stop(to_player(1)); // player 1 isn't active; should not affect anything
+  c.stop(to_player(1)); // player 1 isn't active and should not affect anything
 
   REQUIRE(c.active_player == 0);
   REQUIRE(c.time_ms[1] == 1000);
@@ -81,7 +81,7 @@ TEST_CASE("flagged() is false with healthy time remaining", "[clock]") {
 
 TEST_CASE("active player ticking down to zero eventually flags", "[clock]") {
   BughouseClock c;
-  c.set(30, 0); // 30ms budget
+  c.set(30, 0);
   c.start(to_player(2));
 
   std::this_thread::sleep_for(std::chrono::milliseconds(60));

@@ -12,10 +12,6 @@ Square parse_square(const std::string &s) {
   return to_square(file, rank);
 }
 
-// Replays a list of UCI move tokens against `board`, resolving each one to
-// the matching legal Move via the engine's own move generator. Throws if a
-// token doesn't correspond to a legal move -- i.e. this is a self-check that
-// every position in the suite below is reachable by legal play.
 void apply_uci_moves(Board &board, const std::vector<std::string> &moves) {
   for (const std::string &token : moves) {
     if (token.size() < 4)
@@ -44,9 +40,10 @@ void apply_uci_moves(Board &board, const std::vector<std::string> &moves) {
     }
 
     if (!chosen || !board.is_legal(*chosen))
-      throw std::runtime_error("bench: '" + token +
-                               "' is not a legal move in this position; "
-                               "fix the benchmark suite in bench/positions.cpp");
+      throw std::runtime_error(
+          "bench: '" + token +
+          "' is not a legal move in this position; "
+          "fix the benchmark suite in bench/positions.cpp");
 
     board.make_move(*chosen);
   }

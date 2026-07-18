@@ -37,7 +37,6 @@ TEST_CASE("generate_pseudo_legal_moves excludes double push when blocked",
   auto moves = generate_pseudo_legal_moves(b);
   REQUIRE_FALSE(
       contains_move(moves, Move::normal(to_square(4, 1), to_square(4, 3))));
-  // Single push onto e3 is also blocked path-wise? e3 empty here so allowed.
   REQUIRE(contains_move(moves, Move::normal(to_square(4, 1), to_square(4, 2))));
 }
 
@@ -93,7 +92,6 @@ TEST_CASE("generate_pseudo_legal_moves includes en passant capture immediately "
 
 TEST_CASE("knight move generation ignores blocking pieces",
           "[movegen][knight]") {
-  // Knight surrounded by friendly pieces still jumps over them.
   Board b("k7/8/8/2PPP3/2PNP3/2PPP3/8/7K w - - 0 1");
   auto moves = generate_pseudo_legal_moves(b);
   int from = to_square(3, 3);
@@ -106,9 +104,9 @@ TEST_CASE("sliding pieces stop at the first blocker and cannot jump over it",
   Board b("k7/8/8/8/3p4/8/3R4/7K w - - 0 1");
   auto moves = generate_pseudo_legal_moves(b);
   int from = to_square(3, 1);
-  // Rook can capture the pawn on d4...
+  // Rook can capture the pawn on d4
   REQUIRE(contains_move(moves, Move::normal(from, to_square(3, 3))));
-  // ...but cannot continue past it to d5.
+  // Rook cannot continue past d5
   REQUIRE_FALSE(contains_move(moves, Move::normal(from, to_square(3, 4))));
 }
 
@@ -135,7 +133,7 @@ TEST_CASE("generate_pseudo_legal_moves includes kingside and queenside "
 TEST_CASE(
     "generate_pseudo_legal_moves excludes castling through an attacked square",
     "[movegen][castling]") {
-  // Black rook on f8 attacks f1, the square the king passes through.
+  // Black rook on f8 attacks f1
   Board b("r3k2r/8/8/8/8/8/5r2/R3K2R w KQkq - 0 1");
   auto moves = generate_pseudo_legal_moves(b);
   REQUIRE_FALSE(

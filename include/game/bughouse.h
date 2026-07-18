@@ -7,6 +7,10 @@
 #include <array>
 #include <optional>
 
+// Default time control: 3 + 2
+#define DEFAULT_TIME 3 * 60 * 1000
+#define DEFAULT_INCREMENT 2 * 1000
+
 enum class GameResult { ONGOING, TEAM_A_WINS, TEAM_B_WINS, DRAW };
 
 struct BughouseUndo {
@@ -71,6 +75,12 @@ struct BughouseState {
 
   void print() const;
 };
+
+inline BughouseClock make_clock() {
+  BughouseClock c;
+  c.set(DEFAULT_TIME, DEFAULT_INCREMENT);
+  return c;
+}
 
 uint64_t position_hash(const BughousePosition &position);
 

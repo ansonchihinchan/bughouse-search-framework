@@ -12,10 +12,6 @@
 //
 // Usage:
 //   bench_search [--depth N] [--max-nodes N] [--time-ms N] [--csv PATH]
-//
-// Intended to be run manually or in CI and compared against previous CSV
-// output (bench/results/latest.csv is overwritten every run; timestamped
-// copies are also written so history can be kept if committed).
 
 #include "game/board.h"
 #include "material_evaluator.h"
@@ -69,8 +65,6 @@ Args parse_args(int argc, char **argv) {
   return args;
 }
 
-// One row of benchmark output: a (position, algorithm) pair plus every
-// requested metric, raw and derived.
 struct BenchRow {
   std::string position;
   std::string algorithm;
@@ -269,7 +263,7 @@ int main(int argc, char **argv) {
 
   Board::init_zobrist();
 
-  MaterialEvaluator evaluator;
+  BenchEvaluator evaluator;
   const std::vector<BenchPosition> &suite = benchmark_suite();
 
   std::vector<BenchRow> rows;
