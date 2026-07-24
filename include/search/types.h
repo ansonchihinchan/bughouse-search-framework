@@ -8,6 +8,8 @@
 
 inline constexpr int INF_SCORE = std::numeric_limits<int>::max() / 2;
 
+inline constexpr int DRAW_SCORE = 0;
+
 struct SearchLimits {
   int max_depth = 0;                      // 0 = unbounded
   uint64_t max_nodes = 0;                 // 0 = unbounded

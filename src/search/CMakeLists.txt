@@ -1,5 +1,6 @@
 add_library(search
     alpha_beta_search.cpp
+    history.cpp
     pvs.cpp
     see.cpp
     transposition_table.cpp
