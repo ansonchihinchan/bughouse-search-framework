@@ -119,6 +119,11 @@ GameResult BughouseState::result() const {
                                                 : GameResult::TEAM_A_WINS;
     }
   }
+  // Stalemate is not treated as a loss or draw: the stalemated side simply has
+  // no board move available this instant. Their own clock keeps running until
+  // their partner captures something on the other board crediting a piece to
+  // this player's pocket which may give them a legal drop and unfreeze the
+  // board.
   return GameResult::ONGOING;
 }
 
