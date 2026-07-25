@@ -76,7 +76,7 @@ TEST_CASE("new_search allows a shallower entry to overwrite a stale entry "
   Move m2 = Move::normal(2, 3);
 
   tt.store(30, 6, 100, m1, TTBound::EXACT);
-  tt.new_search();
+  tt.new_generation();
   tt.store(30, 1, 555, m2, TTBound::UPPER);
 
   const TTEntry *e = tt.probe(30);
@@ -101,7 +101,7 @@ TEST_CASE("clear resets the generation so a shallow store is accepted again",
           "[search][tt]") {
   TranspositionTable tt(1);
   tt.store(50, 6, 100, Move::normal(0, 1), TTBound::EXACT);
-  tt.new_search();
+  tt.new_generation();
   tt.clear();
 
   tt.store(50, 1, 42, Move::normal(2, 3), TTBound::UPPER);

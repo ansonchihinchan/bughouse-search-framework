@@ -2,6 +2,7 @@ add_library(search
     alpha_beta_search.cpp
     history.cpp
     pvs.cpp
+    searcher.cpp
     see.cpp
     transposition_table.cpp
     tree_search.cpp

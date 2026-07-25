@@ -1,6 +1,7 @@
-#include "search/tree_search.h"
 #include "game/movegen.h"
+#include "search/searcher.h"
 #include "search/see.h"
+#include "search/tree_search.h"
 #include <cmath>
 
 namespace {
@@ -13,15 +14,7 @@ constexpr int MATING_THREAT_BONUS = 50000;
 } // namespace
 
 bool TreeSearch::deadline_reached() const {
-  if (limits_.max_nodes != 0 && stats_.nodes >= limits_.max_nodes)
-    return true;
-  if (limits_.move_time.count() != 0) {
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - start_time_);
-    if (elapsed >= limits_.move_time)
-      return true;
-  }
-  return false;
+  return timer_.should_abandon(stats_, limits_, start_time_);
 }
 
 void TreeSearch::age_history() {
@@ -30,8 +23,19 @@ void TreeSearch::age_history() {
   defensive_drop_history_.age();
 }
 
+void TreeSearch::new_search(const SearchLimits &limits) {
+  stats_ = SearchStats{};
+  limits_ = limits;
+  start_time_ = std::chrono::steady_clock::now();
+  killer_.clear();
+}
+
+void TreeSearch::end_search() {
+  if (params_.age_history)
+    age_history();
+}
+
 bool TreeSearch::is_volatile(const BughousePosition &position) {
-  // Cheap check if any player currently holds a queen or rook in their pocket
   for (const Pocket &pocket : position.pockets)
     if (pocket.contains(QUEEN) || pocket.contains(ROOK))
       return true;
@@ -53,6 +57,8 @@ void TreeSearch::update_quiet_heuristics(Move move, int depth, int ply,
 
 int TreeSearch::lmr_reduction(int depth, int move_index,
                               bool is_volatile) const {
+  if (!params_.lmr_enabled)
+    return 0;
   if (depth < params_.lmr_min_depth ||
       move_index < params_.lmr_full_depth_moves)
     return 0;
@@ -82,8 +88,6 @@ bool TreeSearch::is_reducible(const BughousePosition &position,
   return true;
 }
 
-// TODO: new module for move ordering
-// TODO: Threat-first ordering
 void TreeSearch::order_moves(const BughousePosition &position,
                              const SearchContext &context,
                              std::vector<ScoredMove> &scored_moves,
@@ -136,11 +140,8 @@ void TreeSearch::order_moves(const BughousePosition &position,
               : board.piece_on(move.from);
       scored_move.score = ordinary_history_.score(moved_piece, move.to);
     }
-
-    // TODO: Counter move heuristic
   }
 
-  // TODO: for each move select highest and search
   std::sort(scored_moves.begin(), scored_moves.end(),
             [](const ScoredMove &a, const ScoredMove &b) {
               return a.score > b.score;
@@ -150,7 +151,6 @@ void TreeSearch::order_moves(const BughousePosition &position,
 int TreeSearch::alpha_beta(BughousePosition &position,
                            const SearchContext &context, int depth, int alpha,
                            int beta, int ply, std::stop_token stop_token) {
-  // TODO: Futility pruning
   stats_.nodes++;
 
   if (depth <= 0 || stop_token.stop_requested() || deadline_reached())
@@ -158,11 +158,14 @@ int TreeSearch::alpha_beta(BughousePosition &position,
 
   int old_alpha = alpha;
   uint64_t key = position_hash(position);
-  const TTEntry *tt_entry = tt_.probe(key);
 
-  stats_.tt_stats.probes++;
-  if (tt_entry)
-    stats_.tt_stats.hits++;
+  const TTEntry *tt_entry = nullptr;
+  if (params_.tt_enabled) {
+    tt_entry = tt_.probe(key);
+    stats_.tt_stats.probes++;
+    if (tt_entry)
+      stats_.tt_stats.hits++;
+  }
 
   if (tt_entry && tt_entry->depth >= depth) {
     stats_.tt_stats.cutoffs++;
@@ -188,7 +191,6 @@ int TreeSearch::alpha_beta(BughousePosition &position,
   bool is_volatile = this->is_volatile(position);
 
   // Null move pruning
-  // TODO: verification search, adaptive reduction, zugzwang detection
   if (null_move_enabled() && depth >= null_move_min_depth() && !in_check &&
       board.has_non_pawn(side) && beta < INF_SCORE &&
       !(tt_entry && tt_entry->depth >= depth - null_move_reduction() &&
@@ -203,15 +205,14 @@ int TreeSearch::alpha_beta(BughousePosition &position,
 
     if (!stop_token.stop_requested() && !deadline_reached() && score >= beta) {
       stats_.null_move_cutoffs++;
-      // Stores an empty move
-      tt_.store(key, depth, score, Move{}, TTBound::LOWER);
+      if (params_.tt_enabled)
+        tt_.store(key, depth, score, Move{}, TTBound::LOWER);
       return score;
     }
   }
 
   auto moves = generate_legal_moves(position, context.root_player);
 
-  // checkmate, stalemate
   if (moves.empty())
     return in_check ? -INF_SCORE + ply
                     : leaf_eval(position, context, alpha, beta, stop_token);
@@ -239,6 +240,18 @@ int TreeSearch::alpha_beta(BughousePosition &position,
         move.is_drop()
             ? make_piece(colour_of_player(context.root_player), move.drop_pt)
             : board.piece_on(move.from);
+
+    if (tt_entry && !tt_entry->best_move.is_none() &&
+        move == tt_entry->best_move)
+      stats_.move_ordering_stats.tt_move_hits++;
+    else if (move == killer_.first(ply) || move == killer_.second(ply))
+      stats_.move_ordering_stats.killer_hits++;
+    else if (capture)
+      (SEE::see_score(board, move) >= 0
+           ? stats_.move_ordering_stats.winning_captures
+           : stats_.move_ordering_stats.losing_captures)++;
+    else
+      stats_.move_ordering_stats.history_ordered++;
 
     BughouseUndo undo = apply_move(position, context.root_player, move);
 
@@ -286,7 +299,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
     move_index++;
   }
 
-  if (completed) {
+  if (completed && params_.tt_enabled) {
     TTBound bound = best <= old_alpha ? TTBound::UPPER
                     : best >= beta    ? TTBound::LOWER
                                       : TTBound::EXACT;
@@ -295,6 +308,26 @@ int TreeSearch::alpha_beta(BughousePosition &position,
   }
   return best;
 }
+
+namespace {
+std::vector<Move> extract_pv(BughousePosition position, PlayerId player,
+                             const TranspositionTable &tt, int max_len) {
+  std::vector<Move> pv;
+  for (int i = 0; i < max_len; i++) {
+    uint64_t key = position_hash(position);
+    const TTEntry *entry = tt.probe(key);
+    if (!entry || entry->best_move.is_none())
+      break;
+    Move move = entry->best_move;
+    if (!position.boards[board_of(player)].is_legal(move))
+      break;
+    apply_move(position, player, move);
+    pv.push_back(move);
+    player = next_player(player);
+  }
+  return pv;
+}
+} // namespace
 
 SearchResult TreeSearch::search_root(const BughousePosition &position,
                                      const SearchContext &context, int depth,
@@ -305,17 +338,22 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
   const Board &board = working.boards[board_of(context.root_player)];
   bool in_check = board.is_in_check();
 
+  int old_alpha = alpha;
+
   auto moves = generate_legal_moves(working, context.root_player);
 
-  // checkmate, stalemate
   if (moves.empty()) {
     result.score =
         in_check ? -INF_SCORE : evaluator_.evaluate(working, context);
+    result.depth = depth;
+    result.bound = TTBound::EXACT;
     return result;
   }
 
   if (board.halfMove >= HALFMOVE_LIMIT) {
     result.score = DRAW_SCORE;
+    result.depth = depth;
+    result.bound = TTBound::EXACT;
     return result;
   }
 
@@ -325,7 +363,7 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
     scored_moves.push_back(ScoredMove{move, 0});
 
   uint64_t key = position_hash(working);
-  const TTEntry *tt_entry = tt_.probe(key);
+  const TTEntry *tt_entry = params_.tt_enabled ? tt_.probe(key) : nullptr;
 
   order_moves(working, context, scored_moves, tt_entry, 0);
 
@@ -387,6 +425,17 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
   }
 
   result.score = searched ? best : evaluator_.evaluate(working, context);
+
+  result.depth = depth;
+  result.bound = result.score <= old_alpha ? TTBound::UPPER
+                 : result.score >= beta    ? TTBound::LOWER
+                                           : TTBound::EXACT;
+  if (!result.best_move.is_none())
+    result.pv = extract_pv(position, context.root_player, tt_, depth);
+
+  stats_.depth_reached = depth;
+  stats_.nodes_by_depth.push_back(stats_.nodes);
+
   return result;
 }
 
@@ -394,75 +443,6 @@ SearchResult TreeSearch::search(const BughousePosition &position,
                                 const SearchContext &context,
                                 const SearchLimits &limits,
                                 std::stop_token stop_token) {
-  stats_ = SearchStats{};
-  limits_ = limits;
-  start_time_ = std::chrono::steady_clock::now();
-  tt_.new_generation();
-  killer_.clear();
-
-  SearchResult best;
-
-  // checkmate, stalemate
-  if (generate_legal_moves(position, context.root_player).empty()) {
-    stats_.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - start_time_);
-    best.stats = stats_;
-    return best;
-  }
-
-  int max_depth = limits.max_depth > 0 ? limits.max_depth : 128;
-  int prev_score = 0;
-
-  for (int depth = 1; depth <= max_depth; depth++) {
-    if (stop_token.stop_requested() || deadline_reached())
-      break;
-
-    int alpha = -INF_SCORE, beta = INF_SCORE;
-    // TODO: adapt initial window
-    int window = params_.aspiration_initial_window;
-    if (depth >= params_.aspiration_start_depth) {
-      alpha = std::max(-INF_SCORE, prev_score - window);
-      beta = std::min(INF_SCORE, prev_score + window);
-    }
-
-    SearchResult result;
-
-    for (;;) {
-      result = search_root(position, context, depth, alpha, beta, stop_token);
-
-      if (stop_token.stop_requested() || deadline_reached())
-        break;
-
-      if (result.score <= alpha) {
-        alpha = std::max(-INF_SCORE, alpha - window);
-        window *= 2;
-      } else if (result.score >= beta) {
-        beta = std::min(INF_SCORE, beta + window);
-        window *= 2;
-      } else {
-        break;
-      }
-    }
-
-    if (!result.best_move.is_none()) {
-      best = result;
-      stats_.depth_reached = depth;
-      stats_.nodes_by_depth.push_back(stats_.nodes);
-      prev_score = result.score;
-    } else {
-      best.score = result.score;
-      break;
-    }
-
-    if (stop_token.stop_requested() || deadline_reached())
-      break;
-  }
-
-  age_history();
-
-  stats_.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::steady_clock::now() - start_time_);
-
-  best.stats = stats_;
-  return best;
+  Searcher searcher(*this, tt_, params_);
+  return searcher.run(position, context, limits, stop_token);
 }

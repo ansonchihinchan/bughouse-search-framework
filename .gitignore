@@ -6,4 +6,6 @@ build/
 
 bench/results
 
+bench/positions
+
 bench/README.md

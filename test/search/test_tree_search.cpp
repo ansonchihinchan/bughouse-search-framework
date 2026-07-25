@@ -50,19 +50,25 @@ BughousePosition free_queen_position() {
 
 TEST_CASE("AlphaBetaSearch::name", "[search][tree_search]") {
   MaterialEvaluator eval;
-  AlphaBetaSearch search(eval);
+  TranspositionTable tt(64);
+  SearchParams params;
+  AlphaBetaSearch search(eval, tt, params);
   REQUIRE(search.name() == "alpha_beta");
 }
 
 TEST_CASE("PVS::name", "[search][tree_search]") {
   MaterialEvaluator eval;
-  PVS search(eval);
+  TranspositionTable tt(64);
+  SearchParams params;
+  PVS search(eval, tt, params);
   REQUIRE(search.name() == "pvs");
 }
 
 TEST_CASE("NullMoveSearch::name", "[search][tree_search]") {
   MaterialEvaluator eval;
-  NullMoveSearch search(eval);
+  TranspositionTable tt(64);
+  SearchParams params;
+  NullMoveSearch search(eval, tt, params);
   REQUIRE(search.name() == "null_move");
 }
 
@@ -73,7 +79,9 @@ TEST_CASE("AlphaBetaSearch finds undefended queen capture",
   SearchContext context = make_context(clock, to_player(0));
 
   MaterialEvaluator eval;
-  AlphaBetaSearch search(eval);
+  TranspositionTable tt(64);
+  SearchParams params;
+  AlphaBetaSearch search(eval, tt, params);
 
   SearchLimits limits;
   limits.max_depth = 3;
@@ -92,7 +100,9 @@ TEST_CASE("PVS finds undefended queen capture", "[search][tree_search]") {
   SearchContext context = make_context(clock, to_player(0));
 
   MaterialEvaluator eval;
-  PVS search(eval);
+  TranspositionTable tt(64);
+  SearchParams params;
+  PVS search(eval, tt, params);
 
   SearchLimits limits;
   limits.max_depth = 3;
@@ -112,7 +122,9 @@ TEST_CASE("NullMoveSearch finds same undefended queen capture",
   SearchContext context = make_context(clock, to_player(0));
 
   MaterialEvaluator eval;
-  NullMoveSearch search(eval);
+  TranspositionTable tt(64);
+  SearchParams params;
+  NullMoveSearch search(eval, tt, params);
 
   SearchLimits limits;
   limits.max_depth = 3;
@@ -131,7 +143,9 @@ TEST_CASE("search() returns a legal move from the standard start position",
   SearchContext context = make_context(game.clock, to_player(0));
 
   MaterialEvaluator eval;
-  AlphaBetaSearch search(eval);
+  TranspositionTable tt(64);
+  SearchParams params;
+  AlphaBetaSearch search(eval, tt, params);
 
   SearchLimits limits;
   limits.max_depth = 2;
@@ -150,7 +164,9 @@ TEST_CASE("search() honours max_depth and does not search beyond it",
   SearchContext context = make_context(game.clock, to_player(0));
 
   MaterialEvaluator eval;
-  AlphaBetaSearch search(eval);
+  TranspositionTable tt(64);
+  SearchParams params;
+  AlphaBetaSearch search(eval, tt, params);
 
   SearchLimits limits;
   limits.max_depth = 1;
@@ -169,7 +185,9 @@ TEST_CASE("search() stops once max_nodes is reached and does not keep "
   SearchContext context = make_context(game.clock, to_player(0));
 
   MaterialEvaluator eval;
-  AlphaBetaSearch search(eval);
+  TranspositionTable tt(64);
+  SearchParams params;
+  AlphaBetaSearch search(eval, tt, params);
 
   SearchLimits limits;
   limits.max_nodes = 50;
@@ -189,7 +207,9 @@ TEST_CASE("search() stops within a small requested move_time budget",
   SearchContext context = make_context(game.clock, to_player(0));
 
   MaterialEvaluator eval;
-  AlphaBetaSearch search(eval);
+  TranspositionTable tt(64);
+  SearchParams params;
+  AlphaBetaSearch search(eval, tt, params);
 
   SearchLimits limits;
   limits.move_time = std::chrono::milliseconds(20);
@@ -212,7 +232,9 @@ TEST_CASE("search() halts immediately when the stop_token is already "
   SearchContext context = make_context(game.clock, to_player(0));
 
   MaterialEvaluator eval;
-  AlphaBetaSearch search(eval);
+  TranspositionTable tt(64);
+  SearchParams params;
+  AlphaBetaSearch search(eval, tt, params);
 
   SearchLimits limits; // unbounded
 
@@ -236,7 +258,9 @@ TEST_CASE("search() reports no move and a zero score for an already "
   SearchContext context = make_context(clock, to_player(1));
 
   MaterialEvaluator eval;
-  AlphaBetaSearch search(eval);
+  TranspositionTable tt(64);
+  SearchParams params;
+  AlphaBetaSearch search(eval, tt, params);
 
   SearchLimits limits;
   limits.max_depth = 3;
