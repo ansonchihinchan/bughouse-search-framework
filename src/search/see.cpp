@@ -82,27 +82,47 @@ int effective_value(PieceType pt) {
 }
 
 // Pinned
-bool king_exposed(const Board &board, Square from) {
+bool king_exposed(const Board &board, Move move) {
   Colour side = board.sideToMove;
   Bitboard king_bb = board.bitboard_piece(make_piece(side, KING));
   if (!king_bb)
     return false;
   Square ksq = static_cast<Square>(std::countr_zero(king_bb));
+  Square from = move.from;
 
-  Bitboard bitboard = board.bitboard_all() & ~(1ULL << from);
+  bool orthogonal =
+      file_of(ksq) == file_of(from) || rank_of(ksq) == rank_of(from);
+  bool diagonal = std::abs(file_of(ksq) - file_of(from)) ==
+                  std::abs(rank_of(ksq) - rank_of(from));
+
+  if (!orthogonal && !diagonal)
+    return false;
+
+  Bitboard occ = board.bitboard_all();
+
+  Bitboard ray_before =
+      orthogonal ? rook_attacks(ksq, occ) : bishop_attacks(ksq, occ);
+  if (!(ray_before & (1ULL << from)))
+    return false;
+
+  occ &= ~(1ULL << from);
+
+  if (move.type == EN_PASSANT) {
+    Square ep_sq = to_square(file_of(move.to), rank_of(move.from));
+    occ &= ~(1ULL << ep_sq);
+  }
+
   Colour enemy = flip(side);
 
-  Bitboard diagBQ = board.bitboard_piece(make_piece(enemy, BISHOP)) |
-                    board.bitboard_piece(make_piece(enemy, QUEEN));
-  if (bishop_attacks(ksq, bitboard) & diagBQ & bitboard)
-    return true;
-
-  Bitboard orthoRQ = board.bitboard_piece(make_piece(enemy, ROOK)) |
-                     board.bitboard_piece(make_piece(enemy, QUEEN));
-  if (rook_attacks(ksq, bitboard) & orthoRQ & bitboard)
-    return true;
-
-  return false;
+  if (orthogonal) {
+    Bitboard orthoRQ = board.bitboard_piece(make_piece(enemy, ROOK)) |
+                       board.bitboard_piece(make_piece(enemy, QUEEN));
+    return (rook_attacks(ksq, occ) & orthoRQ) != 0;
+  } else {
+    Bitboard diagBQ = board.bitboard_piece(make_piece(enemy, BISHOP)) |
+                      board.bitboard_piece(make_piece(enemy, QUEEN));
+    return (bishop_attacks(ksq, occ) & diagBQ) != 0;
+  }
 }
 
 } // namespace
@@ -127,10 +147,13 @@ Result see_result(const Board &board, Move move) {
 
   Bitboard occ = board.bitboard_all();
   occ &= ~(1ULL << move.from);
+
   if (move.type == EN_PASSANT) {
     Square ep_sq = to_square(file_of(move.to), rank_of(move.from));
     occ &= ~(1ULL << ep_sq);
   }
+
+  occ |= (1ULL << move.to);
 
   PieceType captured_list[32];
   int n = 0;
@@ -163,7 +186,7 @@ Result see_result(const Board &board, Move move) {
 
     captured_list[n++] = occupant;
 
-    occ &= ~(1ULL << from_sq);
+    occ ^= 1ULL << from_sq;
     attackers = attackers_to(board, move.to, occ);
     occupant = lva;
     side = flip(side);
@@ -179,7 +202,7 @@ Result see_result(const Board &board, Move move) {
 
   result.score = gain[0] + promotion_bonus;
 
-  if (!move.is_drop() && king_exposed(board, move.from)) {
+  if (!move.is_drop() && king_exposed(board, move)) {
     result.king_exposed = true;
     result.score -= PIECE_VALUE[QUEEN] / 6;
   }

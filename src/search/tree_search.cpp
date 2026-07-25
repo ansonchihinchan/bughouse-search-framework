@@ -403,6 +403,15 @@ SearchResult TreeSearch::search(const BughousePosition &position,
   killer_.clear();
 
   SearchResult best;
+
+  // checkmate, stalemate
+  if (generate_legal_moves(position, context.root_player).empty()) {
+    stats_.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start_time_);
+    best.stats = stats_;
+    return best;
+  }
+
   int max_depth = limits.max_depth > 0 ? limits.max_depth : 128;
   int prev_score = 0;
 
@@ -441,6 +450,10 @@ SearchResult TreeSearch::search(const BughousePosition &position,
       best = result;
       stats_.depth_reached = depth;
       stats_.nodes_by_depth.push_back(stats_.nodes);
+      prev_score = result.score;
+    } else {
+      best.score = result.score;
+      break;
     }
 
     if (stop_token.stop_requested() || deadline_reached())
