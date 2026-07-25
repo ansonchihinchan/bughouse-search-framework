@@ -133,9 +133,9 @@ BenchRow run_one(const std::string &algorithm, Search &search,
                 : static_cast<double>(row.nodes); // finished in <1ms
   row.beta_cutoffs = result.stats.beta_cutoffs;
   row.null_move_cutoffs = result.stats.null_move_cutoffs;
-  row.tt_cutoffs = result.stats.tt_cutoffs;
-  row.tt_probes = result.stats.tt_probes;
-  row.tt_hits = result.stats.tt_hits;
+  row.tt_cutoffs = result.stats.tt_stats.cutoffs;
+  row.tt_probes = result.stats.tt_stats.probes;
+  row.tt_hits = result.stats.tt_stats.hits;
   row.tt_hit_rate = row.tt_probes > 0
                         ? static_cast<double>(row.tt_hits) / row.tt_probes
                         : 0.0;
@@ -277,10 +277,14 @@ int main(int argc, char **argv) {
       continue;
     }
 
+    TranspositionTable tt(64);
+    SearchParams params;
     std::vector<std::unique_ptr<Search>> algorithms;
-    algorithms.push_back(std::make_unique<AlphaBetaSearch>(evaluator));
-    algorithms.push_back(std::make_unique<PVS>(evaluator));
-    algorithms.push_back(std::make_unique<NullMoveSearch>(evaluator));
+    algorithms.push_back(
+        std::make_unique<AlphaBetaSearch>(evaluator, tt, params));
+    algorithms.push_back(std::make_unique<PVS>(evaluator, tt, params));
+    algorithms.push_back(
+        std::make_unique<NullMoveSearch>(evaluator, tt, params));
 
     for (auto &search : algorithms)
       rows.push_back(

@@ -4,13 +4,6 @@
 #include "search/see.h"
 #include <algorithm>
 
-// TODO: possibly moved to a core layer
-namespace {
-constexpr int DELTA_MARGIN = 200;
-
-constexpr int QUIESCENCE_MAX_PLY = 20;
-} // namespace
-
 int AlphaBetaSearch::search_first_move(BughousePosition &position,
                                        const SearchContext &next, int depth,
                                        int alpha, int beta, int ply,
@@ -52,7 +45,7 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
   bool in_check = board.is_in_check();
   Colour mover_colour = colour_of_player(context.root_player);
 
-  if (in_check && qply >= QUIESCENCE_MAX_PLY)
+  if (in_check && qply >= params_.quiescence_max_ply)
     return evaluator_.evaluate(position, context);
 
   int stand_pat = 0;
@@ -89,7 +82,7 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
       if (see.score < -50)
         return true;
 
-      return stand_pat + see.score + DELTA_MARGIN < alpha;
+      return stand_pat + see.score + params_.delta_margin < alpha;
     });
   }
 

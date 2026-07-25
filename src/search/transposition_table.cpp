@@ -10,6 +10,14 @@ size_t next_power_of_two(size_t n) {
 }
 } // namespace
 
+TTReplacementPolicy default_policy() {
+  return
+      [](const TTEntry &current, const TTEntry &candidate, uint8_t generation) {
+        return current.depth < 0 || current.generation != generation ||
+               candidate.depth >= current.depth;
+      };
+}
+
 TranspositionTable::TranspositionTable(size_t size_mb) { resize(size_mb); }
 
 void TranspositionTable::resize(size_t size_mb) {
@@ -25,7 +33,11 @@ void TranspositionTable::clear() {
   generation_ = 0;
 }
 
-void TranspositionTable::new_search() { generation_++; }
+void TranspositionTable::new_generation() { generation_++; }
+
+void TranspositionTable::set_policy(TTReplacementPolicy policy) {
+  policy_ = std::move(policy);
+}
 
 const TTEntry *TranspositionTable::probe(uint64_t key) const {
   const TTEntry &entry = table_[key & mask_];
@@ -37,8 +49,9 @@ const TTEntry *TranspositionTable::probe(uint64_t key) const {
 void TranspositionTable::store(uint64_t key, int depth, int score,
                                Move best_move, TTBound bound) {
   TTEntry &slot = table_[key & mask_];
-  if (slot.depth < 0 || slot.generation != generation_ || depth >= slot.depth) {
-    slot = TTEntry{
-        key, static_cast<int16_t>(depth), score, best_move, bound, generation_};
-  }
+  TTEntry candidate{
+      key, static_cast<uint16_t>(depth), score, best_move, bound, generation_};
+
+  if (policy_(slot, candidate, generation_))
+    slot = candidate;
 }

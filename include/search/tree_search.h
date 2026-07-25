@@ -4,7 +4,9 @@
 #include "search/history.h"
 #include "search/killer.h"
 #include "search/search.h"
+#include "search/timer.h"
 #include "search/transposition_table.h"
+#include "search/types.h"
 #include <array>
 #include <chrono>
 #include <vector>
@@ -13,13 +15,14 @@
 // AlphaBeta, PVS and NullMove
 class TreeSearch : public Search {
 public:
-  using Search::Search;
+  TreeSearch(const Evaluator &evaluator, TranspositionTable &tt,
+             const SearchParams &params, const Timer &timer = default_timer())
+      : Search(evaluator), tt_(tt), params_(params), timer_(timer) {}
 
   SearchResult search(const BughousePosition &position,
                       const SearchContext &context, const SearchLimits &limits,
                       std::stop_token stop_token) override final;
 
-protected:
   SearchResult search_root(const BughousePosition &position,
                            const SearchContext &context, int depth, int alpha,
                            int beta, std::stop_token stop_token);
@@ -28,6 +31,10 @@ protected:
                  int depth, int alpha, int beta, int ply,
                  std::stop_token stop_token);
 
+  void new_search(const SearchLimits &limits);
+  void end_search();
+
+protected:
   virtual int search_first_move(BughousePosition &position,
                                 const SearchContext &next, int depth, int alpha,
                                 int beta, int ply,
@@ -57,12 +64,13 @@ protected:
   void update_quiet_heuristics(Move move, int depth, int ply, Piece moved_piece,
                                bool in_check);
 
-  virtual bool null_move_enabled() const { return false; }
-  virtual int null_move_reduction() const { return 3; }
-  virtual int null_move_min_depth() const { return 3; }
-
-  static constexpr int LMR_MIN_DEPTH = 3;
-  static constexpr int LMR_FULL_DEPTH_MOVES = 3;
+  virtual bool null_move_enabled() const { return params_.null_move_enabled; }
+  virtual int null_move_reduction() const {
+    return params_.null_move_reduction;
+  }
+  virtual int null_move_min_depth() const {
+    return params_.null_move_min_depth;
+  }
 
   virtual int lmr_reduction(int depth, int move_index, bool is_volatile) const;
   bool is_reducible(const BughousePosition &position,
@@ -83,7 +91,9 @@ protected:
   SearchStats stats_;
   SearchLimits limits_;
   std::chrono::steady_clock::time_point start_time_;
-  TranspositionTable tt_;
+  TranspositionTable &tt_;
+  const SearchParams &params_;
+  const Timer &timer_;
 };
 
 // Cheap check for mating threat
