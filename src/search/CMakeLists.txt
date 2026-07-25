@@ -1,6 +1,5 @@
 add_library(search
     alpha_beta_search.cpp
-    history.cpp
     pvs.cpp
     searcher.cpp
     see.cpp

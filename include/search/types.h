@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/clock.h"
 #include "game/types.h"
 #include "search/transposition_table.h"
 #include <chrono>
@@ -65,9 +66,9 @@ struct SearchResult {
 };
 
 struct SearchParams {
-  bool tt_enabled;
+  bool tt_enabled = true;
 
-  bool see_enabled;
+  bool see_enabled = true;
   int see_prune_threshold = -50;
   int delta_margin = 200;
 
@@ -76,6 +77,7 @@ struct SearchParams {
 
   int aspiration_initial_window = 25;
   int aspiration_start_depth = 3;
+  float aspiration_volatility_scale = 2.0f;
 
   bool lmr_enabled = true;
   int lmr_min_depth = 3;
@@ -85,10 +87,18 @@ struct SearchParams {
   int null_move_reduction = 3;
   int null_move_min_depth = 3;
 
+  bool futility_enabled = true;
+  int futility_max_depth = 3;
+
   bool age_history = true;
 };
 
 struct ScoredMove {
   Move move;
   int score = 0;
+};
+
+struct DetailedMove {
+  Move move;
+  Piece piece;
 };
