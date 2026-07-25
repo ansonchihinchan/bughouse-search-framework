@@ -22,4 +22,11 @@ public:
     (void)context;
     return false;
   }
+
+  virtual float volatility(const BughousePosition &position,
+                           const SearchContext &context) const {
+    (void)position;
+    (void)context;
+    return 0.0f;
+  }
 };

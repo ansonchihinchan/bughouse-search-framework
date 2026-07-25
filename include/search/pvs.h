@@ -9,6 +9,7 @@ public:
 
 protected:
   int search_tail_move(BughousePosition &position, const SearchContext &next,
-                       int depth, int alpha, int beta, int ply, int reduction,
+                       const DetailedMove &prev, int depth, int alpha, int beta,
+                       int ply, int reduction,
                        std::stop_token stop_token) override;
 };
