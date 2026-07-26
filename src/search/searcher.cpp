@@ -1,5 +1,7 @@
 #include "search/searcher.h"
+#include "game/movegen.h"
 #include <algorithm>
+#include <chrono>
 
 SearchResult Searcher::run(const BughousePosition &position,
                            const SearchContext &context,
@@ -7,14 +9,12 @@ SearchResult Searcher::run(const BughousePosition &position,
                            std::stop_token stop_token) {
   search_.new_search(limits);
 
-  tt_.new_generation();
-
   SearchResult best;
   int max_depth = limits.max_depth > 0 ? limits.max_depth : 128;
   int prev_score = 0;
 
   for (int depth = 1; depth <= max_depth; depth++) {
-    if (stop_token.stop_requested())
+    if (stop_token.stop_requested() || search_.deadline_reached())
       break;
 
     begin_iteration(depth);
@@ -31,7 +31,7 @@ SearchResult Searcher::run(const BughousePosition &position,
       result = search_.search_root(position, context, depth, alpha, beta,
                                    stop_token);
 
-      if (stop_token.stop_requested())
+      if (stop_token.stop_requested() || search_.deadline_reached())
         break;
 
       if (result.score <= alpha) {
@@ -48,11 +48,13 @@ SearchResult Searcher::run(const BughousePosition &position,
     if (!result.best_move.is_none()) {
       best = result;
       prev_score = result.score;
+      end_iteration(depth, best);
+    } else {
+      best.score = result.score;
+      break;
     }
 
-    end_iteration(depth, best);
-
-    if (stop_token.stop_requested())
+    if (stop_token.stop_requested() || search_.deadline_reached())
       break;
   }
 

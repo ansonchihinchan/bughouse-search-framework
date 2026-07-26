@@ -35,6 +35,8 @@ public:
   void new_search(const SearchLimits &limits);
   void end_search();
 
+  bool deadline_reached() const;
+
 protected:
   virtual int search_first_move(BughousePosition &position,
                                 const SearchContext &next,
@@ -78,8 +80,6 @@ protected:
   static bool is_volatile(const BughousePosition &position);
 
   static constexpr int HALFMOVE_LIMIT = 100;
-
-  bool deadline_reached() const;
 
   int futility_margin(int depth, float volatility) const;
 
