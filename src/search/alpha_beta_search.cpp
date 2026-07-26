@@ -75,17 +75,19 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
     });
 
     // SEE filtering, Delta pruning
-    std::erase_if(moves, [&](const Move &m) {
-      if (m.is_drop())
-        return false;
+    if (params_.see_enabled) {
+      std::erase_if(moves, [&](const Move &m) {
+        if (m.is_drop())
+          return false;
 
-      SEE::Result see = SEE::see_result(board, m);
+        SEE::Result see = SEE::see_result(board, m);
 
-      if (see.score < -50)
-        return true;
+        if (see.score < params_.see_prune_threshold)
+          return true;
 
-      return stand_pat + see.score + params_.delta_margin < alpha;
-    });
+        return stand_pat + see.score + params_.delta_margin < alpha;
+      });
+    }
   }
 
   std::sort(moves.begin(), moves.end(), [&](const Move &a, const Move &b) {

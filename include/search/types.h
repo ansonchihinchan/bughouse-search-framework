@@ -63,6 +63,7 @@ struct SearchResult {
   TTBound bound = TTBound::EXACT;
   std::vector<Move> pv;
   SearchStats stats;
+  bool completed = false;
 };
 
 struct SearchParams {
