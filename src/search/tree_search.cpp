@@ -184,7 +184,8 @@ void TreeSearch::order_moves(const BughousePosition &position,
       Piece moved_piece = make_piece(mover_colour, move.drop_pt);
       const auto &table =
           in_check ? defensive_drop_history_ : attacking_drop_history_;
-      scored_move.score = table.score(moved_piece, move.to) + bonus;
+      int drop_safety = params_.see_enabled ? SEE::see_drop_score(board, move.drop_pt, move.to) : 0;
+      scored_move.score = (drop_safety < 0) ? LOSING_CAPTURE_BASE + drop_safety : table.score(moved_piece, move.to) + bonus;
     } else {
       Piece moved_piece =
           move.is_drop()
@@ -247,7 +248,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
 
   // Null move pruning
   // TODO: verification search, adaptive reduction, zugzwang detection
-  if (null_move_enabled() && depth >= params_.null_move_min_depth &&
+  if (null_move_enabled() && !is_volatile && depth >= params_.null_move_min_depth &&
       !in_check && board.has_non_pawn(side) && beta < INF_SCORE &&
       !(tt_entry && tt_entry->depth >= depth - params_.null_move_reduction &&
         tt_entry->bound == TTBound::UPPER && tt_entry->score < beta)) {

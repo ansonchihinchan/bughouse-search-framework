@@ -50,7 +50,7 @@ void TranspositionTable::store(uint64_t key, int depth, int score,
                                Move best_move, TTBound bound) {
   TTEntry &slot = table_[key & mask_];
   TTEntry candidate{
-      key, static_cast<uint16_t>(depth), score, best_move, bound, generation_};
+      key, static_cast<int16_t>(depth), score, best_move, bound, generation_};
 
   if (policy_(slot, candidate, generation_))
     slot = candidate;
