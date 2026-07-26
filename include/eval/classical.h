@@ -12,6 +12,9 @@ public:
   int evaluate(const BughousePosition &position,
                const SearchContext &search_context) const override;
 
+  bool is_noisy(const BughousePosition &position,
+                const SearchContext &search_context) const override;
+
 private:
   std::vector<std::unique_ptr<EvalFeature>> features_;
 };

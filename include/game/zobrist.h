@@ -8,7 +8,7 @@ namespace Zobrist {
 
 constexpr int CASTLING_RIGHTS_NO = 16;
 constexpr int ENPASSANT_FILE_NO = 8;
-constexpr int MAX_POCKET_COUNT = 10;
+constexpr int MAX_POCKET_COUNT = 16;
 
 extern uint64_t pieceSquare[PIECE_NO][SQUARE_NO];
 extern uint64_t side;

@@ -1,11 +1,12 @@
 #include "game/attacks.h"
+#include <mutex>
 
 namespace {
 // Precomputed knight/king attack tables
 uint64_t KnightAttacks[SQUARE_NO];
 uint64_t KingAttacks[SQUARE_NO];
 
-bool tables_init = false;
+std::once_flag tables_init;
 
 template <size_t N>
 Bitboard sliding(Square square, Bitboard bitboard,
@@ -26,12 +27,10 @@ Bitboard sliding(Square square, Bitboard bitboard,
 } // namespace
 
 void init_attack_tables() {
-  if (tables_init)
-    return;
-  tables_init = true;
-  const int knight_offs[] = {17, 15, 10, 6, -6, -10, -15, -17};
-  const int king_offs[] = {9, 8, 7, 1, -1, -7, -8, -9};
-  for (int s = 0; s < 64; s++) {
+  std::call_once(tables_init, []() {
+    const int knight_offs[] = {17, 15, 10, 6, -6, -10, -15, -17};
+    const int king_offs[] = {9, 8, 7, 1, -1, -7, -8, -9};
+    for (int s = 0; s < 64; s++) {
     for (int off : knight_offs) {
       int t = s + off;
       if (t >= 0 && t < 64 && std::abs((t & 7) - (s & 7)) <= 2)
@@ -41,8 +40,9 @@ void init_attack_tables() {
       int t = s + off;
       if (t >= 0 && t < 64 && std::abs((t & 7) - (s & 7)) <= 1)
         KingAttacks[s] |= 1ULL << t;
+      }
     }
-  }
+  }); 
 }
 
 Bitboard knight_attacks(Square square) { return KnightAttacks[square]; }
