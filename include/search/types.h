@@ -76,7 +76,7 @@ struct SearchParams {
   int see_prune_threshold = -50;
   int delta_margin = 200;
 
-  bool quiescence_enabled;
+  bool quiescence_enabled = true;
   int quiescence_max_ply = 20;
 
   int aspiration_initial_window = 25;
