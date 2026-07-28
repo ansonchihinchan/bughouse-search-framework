@@ -463,6 +463,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
       break;
     }
 
+    first_child = false;
     move_index++;
   }
 
