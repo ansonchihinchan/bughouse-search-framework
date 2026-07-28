@@ -50,10 +50,13 @@ struct SearchStats {
 struct SearchContext {
   const BughouseClock &clock;
   PlayerId root_player;
+  const std::vector<RepetitionNode> *history = nullptr;
 };
 
-constexpr SearchContext make_context(const BughouseClock &c, PlayerId p) {
-  return SearchContext{c, p};
+constexpr SearchContext
+make_context(const BughouseClock &c, PlayerId p,
+             const std::vector<RepetitionNode> *history = nullptr) {
+  return SearchContext{c, p, history};
 }
 
 struct SearchResult {
