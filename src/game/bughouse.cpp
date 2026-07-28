@@ -18,6 +18,9 @@ void BughouseState::reset() {
   for (auto &p : position.pockets)
     p = Pocket{};
   clock.set(DEFAULT_TIME, DEFAULT_INCREMENT);
+
+  history.clear();
+  history.push_back(RepetitionNode{position_hash(position), 0, 0});
 }
 
 uint64_t position_hash(const BughousePosition &position) {
@@ -100,6 +103,34 @@ BoardUndo make_null_move(BughousePosition &position, PlayerId player) {
 void undo_null_move(BughousePosition &position, PlayerId player,
                     const BoardUndo &undo) {
   position.boards[board_of(player)].undo_null_move(undo);
+}
+
+BughouseUndo BughouseState::make_move(PlayerId player, Move move) {
+  const Board &board = position.boards[board_of(player)];
+
+  Piece moved_piece = move.is_drop() ? Piece{} : board.piece_on(move.from);
+  bool irreversible = move.is_drop() || move.type == PROMOTE ||
+                      move.type == EN_PASSANT || moved_piece.type == PAWN ||
+                      board.is_capture(move);
+
+  BughouseUndo undo = apply_move(position, player, move);
+
+  int prev_reversible = history.empty() ? 0 : history.back().reversible_plies;
+  int reversible_plies = irreversible ? 0 : prev_reversible + 1;
+
+  uint64_t key = position_hash(position);
+  int repetition = mark_repetition(history, key, reversible_plies);
+
+  history.push_back(RepetitionNode{key, reversible_plies, repetition});
+
+  return undo;
+}
+
+void BughouseState::unmake_move(PlayerId player, Move move,
+                                const BughouseUndo &undo) {
+  undo_move(position, player, move, undo);
+  if (!history.empty())
+    history.pop_back();
 }
 
 GameResult BughouseState::result() const {

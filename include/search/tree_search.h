@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/attacks.h"
+#include "game/bughouse.h"
 #include "search/counter_move.h"
 #include "search/history.h"
 #include "search/killer.h"
@@ -9,6 +10,7 @@
 #include "search/transposition_table.h"
 #include "search/types.h"
 #include <array>
+#include <bit>
 #include <chrono>
 #include <vector>
 
@@ -30,7 +32,8 @@ public:
 
   int alpha_beta(BughousePosition &position, const SearchContext &context,
                  const DetailedMove &prev, int depth, int alpha, int beta,
-                 int ply, std::stop_token stop_token);
+                 int ply, std::stop_token stop_token,
+                 bool is_null_move = false);
 
   void new_search(const SearchLimits &limits);
   void end_search();
@@ -89,6 +92,8 @@ protected:
   History defensive_drop_history_;
   CounterMove counter_move_;
 
+  std::vector<RepetitionNode> search_path_;
+
   SearchStats stats_;
   SearchLimits limits_;
   std::chrono::steady_clock::time_point start_time_;
@@ -98,15 +103,72 @@ protected:
 };
 
 // TODO
-// Cheap check for mating threat
+// Cheap check for mating threat, at least half of king's escape squares covered
 inline bool creates_mating_threat(const Board &board, Move move, Colour mover) {
   Colour enemy = flip(mover);
   Bitboard king_bb = board.bitboard_piece(make_piece(enemy, KING));
   if (!king_bb)
     return false;
+
   Square ksq = static_cast<Square>(std::countr_zero(king_bb));
-  return std::abs(file_of(move.to) - file_of(ksq)) <= 1 &&
-         std::abs(rank_of(move.to) - rank_of(ksq)) <= 1;
+  Bitboard king_zone = king_attacks(ksq) | king_bb;
+
+  PieceType pt;
+  Square to_sq = move.to;
+
+  if (move.is_drop()) {
+    pt = move.drop_pt;
+  } else {
+    pt = board.piece_on(move.from).type;
+    if (move.type == PROMOTE)
+      pt = move.promote_pt;
+    if (move.type == CASTLE) {
+      bool kingside = move.to > move.from;
+      to_sq = to_square(kingside ? 5 : 3, rank_of(move.from));
+      pt = ROOK;
+    }
+  }
+
+  Bitboard occ = board.bitboard_all();
+  if (!move.is_drop())
+    occ &= ~(1ULL << move.from);
+  occ |= (1ULL << to_sq);
+
+  Bitboard reach;
+  switch (pt) {
+  case KNIGHT:
+    reach = knight_attacks(to_sq);
+    break;
+  case BISHOP:
+    reach = bishop_attacks(to_sq, occ);
+    break;
+  case ROOK:
+    reach = rook_attacks(to_sq, occ);
+    break;
+  case QUEEN:
+    reach = bishop_attacks(to_sq, occ) | rook_attacks(to_sq, occ);
+    break;
+  case KING:
+    reach = king_attacks(to_sq);
+    break;
+  default:
+    reach = 0;
+    break;
+  }
+
+  if (!(reach & king_zone))
+    return false;
+
+  Bitboard enemy_pieces = board.bitboard_colour(enemy);
+  Bitboard flight_squares =
+      king_attacks(ksq) & ~enemy_pieces & ~(1ULL << to_sq);
+
+  if (!flight_squares)
+    return false;
+
+  Bitboard remaining = flight_squares & ~reach;
+
+  return std::popcount(remaining) <= std::popcount(flight_squares) / 2;
 }
 
 inline bool drop_gives_check(const Board &board, PieceType pt, Square to,

@@ -64,14 +64,48 @@ inline int team_sign(PlayerId player1, PlayerId player2) {
   return (player2 == player1 || player2 == partner_of(player1)) ? 1 : -1;
 }
 
+// Stockfish-style threefold repetition check
+struct RepetitionNode {
+  uint64_t key = 0;
+
+  // Plies since the last irreversible event
+  // pawn move, drop, promotion, en passant capture, (null move)
+  int reversible_plies = 0;
+
+  // 0:  no earlier match
+  // +n: matches the position n plies back, 2nd known occurrence
+  // -n: matches the position n plies back, 3rd known occurrence
+  int repetition = 0;
+};
+
+inline int mark_repetition(const std::vector<RepetitionNode> &path,
+                           uint64_t key, int reversible_plies) {
+  int end = std::min(reversible_plies, static_cast<int>(path.size()));
+  if (end >= 4) {
+    for (int i = 4; i <= end; i += 2) {
+      const RepetitionNode &ancestor = path[path.size() - i];
+      if (ancestor.key == key)
+        return ancestor.repetition ? -i : i;
+    }
+  }
+  return 0;
+}
+
 struct BughouseState {
   BughousePosition position;
   BughouseClock clock;
+
+  std::vector<RepetitionNode> history;
 
   BughouseState();
   void reset();
 
   GameResult result() const;
+
+  // Applies real game move that is recorded in history
+  // Different to apply_move / undo_move
+  BughouseUndo make_move(PlayerId player, Move move);
+  void unmake_move(PlayerId player, Move move, const BughouseUndo &undo);
 
   void print() const;
 };

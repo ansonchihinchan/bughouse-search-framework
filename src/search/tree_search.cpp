@@ -2,6 +2,7 @@
 #include "game/movegen.h"
 #include "search/searcher.h"
 #include "search/see.h"
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -13,6 +14,58 @@ constexpr int KILLER2_SCORE = 690000;
 constexpr int COUNTER_MOVE_SCORE = 680000;
 constexpr int MATING_THREAT_BONUS = 50000;
 constexpr int LOSING_CAPTURE_BASE = -900000;
+
+constexpr int MAX_MATE_PLY = 1024;
+int score_to_tt(int score, int ply) {
+  if (score >= INF_SCORE - MAX_MATE_PLY)
+    return score + ply;
+  if (score <= -INF_SCORE + MAX_MATE_PLY)
+    return score - ply;
+  return score;
+}
+
+int tt_to_score(int score, int ply) {
+  if (score >= INF_SCORE - MAX_MATE_PLY)
+    return score - ply;
+  if (score <= -INF_SCORE + MAX_MATE_PLY)
+    return score + ply;
+  return score;
+}
+
+class RepetitionGuard {
+public:
+  RepetitionGuard(std::vector<RepetitionNode> &path, uint64_t key,
+                  bool irreversible)
+      : path_(path), pushed_(path.empty() || path.back().key != key) {
+    if (!pushed_)
+      return;
+
+    int prev_reversible = path_.empty() ? 0 : path_.back().reversible_plies;
+    int reversible_plies = irreversible ? 0 : prev_reversible + 1;
+    int repetition = mark_repetition(path_, key, reversible_plies);
+
+    path_.push_back(RepetitionNode{key, reversible_plies, repetition});
+  }
+
+  ~RepetitionGuard() {
+    if (pushed_)
+      path_.pop_back();
+  }
+
+  int repetition() const { return path_.back().repetition; }
+
+  // Disabled copying
+  RepetitionGuard(const RepetitionGuard &) = delete;
+  RepetitionGuard &operator=(const RepetitionGuard &) = delete;
+
+private:
+  std::vector<RepetitionNode> &path_;
+  bool pushed_;
+};
+
+inline bool is_repetition_draw(int repetition, int ply) {
+  return repetition != 0 && repetition < ply;
+}
 
 class TreeSearcher : public Searcher {
 public:
@@ -51,6 +104,7 @@ void TreeSearch::new_search(const SearchLimits &limits) {
     tt_.new_generation();
 
   killer_.clear();
+  search_path_.clear();
 }
 
 void TreeSearch::end_search() {
@@ -184,8 +238,12 @@ void TreeSearch::order_moves(const BughousePosition &position,
       Piece moved_piece = make_piece(mover_colour, move.drop_pt);
       const auto &table =
           in_check ? defensive_drop_history_ : attacking_drop_history_;
-      int drop_safety = params_.see_enabled ? SEE::see_drop_score(board, move.drop_pt, move.to) : 0;
-      scored_move.score = (drop_safety < 0) ? LOSING_CAPTURE_BASE + drop_safety : table.score(moved_piece, move.to) + bonus;
+      int drop_safety = params_.see_enabled
+                            ? SEE::see_drop_score(board, move.drop_pt, move.to)
+                            : 0;
+      scored_move.score = (drop_safety < 0)
+                              ? LOSING_CAPTURE_BASE + drop_safety
+                              : table.score(moved_piece, move.to) + bonus;
     } else {
       Piece moved_piece =
           move.is_drop()
@@ -205,14 +263,25 @@ void TreeSearch::order_moves(const BughousePosition &position,
 int TreeSearch::alpha_beta(BughousePosition &position,
                            const SearchContext &context,
                            const DetailedMove &prev, int depth, int alpha,
-                           int beta, int ply, std::stop_token stop_token) {
+                           int beta, int ply, std::stop_token stop_token,
+                           bool is_null_move) {
   stats_.nodes++;
+
+  uint64_t key = position_hash(position);
+
+  bool irreversible = is_null_move || prev.move.is_drop() ||
+                      prev.move.type == PROMOTE ||
+                      prev.move.type == EN_PASSANT || prev.piece.type == PAWN;
+
+  RepetitionGuard rep_guard(search_path_, key, irreversible);
+
+  if (is_repetition_draw(rep_guard.repetition(), ply))
+    return DRAW_SCORE;
 
   if (depth <= 0 || stop_token.stop_requested() || deadline_reached())
     return leaf_eval(position, context, alpha, beta, stop_token);
 
   int old_alpha = alpha;
-  uint64_t key = position_hash(position);
   const TTEntry *tt_entry = nullptr;
 
   if (params_.tt_enabled) {
@@ -226,19 +295,21 @@ int TreeSearch::alpha_beta(BughousePosition &position,
   if (tt_entry && tt_entry->depth >= depth) {
     stats_.tt_stats.cutoffs++;
 
+    int tt_score = tt_to_score(tt_entry->score, ply);
+
     switch (tt_entry->bound) {
     case TTBound::EXACT:
-      return tt_entry->score;
+      return tt_score;
     case TTBound::LOWER:
-      alpha = std::max(alpha, tt_entry->score);
+      alpha = std::max(alpha, tt_score);
       break;
     case TTBound::UPPER:
-      beta = std::min(beta, tt_entry->score);
+      beta = std::min(beta, tt_score);
       break;
     }
 
     if (alpha >= beta)
-      return tt_entry->score;
+      return tt_score;
   }
 
   const Board &board = position.boards[board_of(context.root_player)];
@@ -248,23 +319,25 @@ int TreeSearch::alpha_beta(BughousePosition &position,
 
   // Null move pruning
   // TODO: verification search, adaptive reduction, zugzwang detection
-  if (null_move_enabled() && !is_volatile && depth >= params_.null_move_min_depth &&
-      !in_check && board.has_non_pawn(side) && beta < INF_SCORE &&
+  if (null_move_enabled() && !is_volatile &&
+      depth >= params_.null_move_min_depth && !in_check &&
+      board.has_non_pawn(side) && beta < INF_SCORE &&
       !(tt_entry && tt_entry->depth >= depth - params_.null_move_reduction &&
-        tt_entry->bound == TTBound::UPPER && tt_entry->score < beta)) {
+        tt_entry->bound == TTBound::UPPER &&
+        tt_to_score(tt_entry->score, ply) < beta)) {
     BoardUndo null_undo = make_null_move(position, context.root_player);
 
     int score = -alpha_beta(
         position, make_context(context.clock, next_player(context.root_player)),
         DetailedMove{}, depth - 1 - params_.null_move_reduction, -beta,
-        -beta + 1, ply + 1, stop_token);
+        -beta + 1, ply + 1, stop_token, true);
     undo_null_move(position, context.root_player, null_undo);
 
     if (!stop_token.stop_requested() && !deadline_reached() && score >= beta) {
       stats_.null_move_cutoffs++;
       // Stores an empty move
       if (params_.tt_enabled)
-        tt_.store(key, depth, score, Move{}, TTBound::LOWER);
+        tt_.store(key, depth, score_to_tt(score, ply), Move{}, TTBound::LOWER);
       return score;
     }
   }
@@ -397,7 +470,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
     TTBound bound = best <= old_alpha ? TTBound::UPPER
                     : best >= beta    ? TTBound::LOWER
                                       : TTBound::EXACT;
-    tt_.store(key, depth, best, best_move, bound);
+    tt_.store(key, depth, score_to_tt(best, ply), best_move, bound);
   }
   return best;
 }
@@ -433,6 +506,9 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
 
   int old_alpha = alpha;
 
+  uint64_t key = position_hash(working);
+  RepetitionGuard rep_guard(search_path_, key, false);
+
   auto moves = generate_legal_moves(working, context.root_player);
 
   // checkmate, stalemate
@@ -456,7 +532,6 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
   for (Move move : moves)
     scored_moves.push_back(ScoredMove{move, 0});
 
-  uint64_t key = position_hash(working);
   const TTEntry *tt_entry = params_.tt_enabled ? tt_.probe(key) : nullptr;
 
   order_moves(working, context, DetailedMove{}, scored_moves, tt_entry, 0);
@@ -544,6 +619,9 @@ SearchResult TreeSearch::search(const BughousePosition &position,
                                 const SearchLimits &limits,
                                 std::stop_token stop_token) {
   new_search(limits);
+
+  if (context.history)
+    search_path_ = *context.history;
 
   // checkmate, stalemate
   if (generate_legal_moves(position, context.root_player).empty()) {
