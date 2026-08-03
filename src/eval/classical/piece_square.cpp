@@ -16,52 +16,42 @@ int pst_lookup(const int table[64], Colour colour, Square sq) {
 } // namespace
 
 EvalScore PieceSquareEvaluator::evaluate(const EvalContext &context) const {
-  EvalScore total = EvalScore(0);
+  const Board &board = context.board;
+  EvalScore score = EvalScore(0);
 
-  for (int b = 0; b < BOARD_NO; b++) {
-    const Board &board = context.position.boards[b];
-    EvalScore board_score = EvalScore(0);
+  for (Square sq = 0; sq < SQUARE_NO; sq++) {
+    Piece piece = board.piece_on(sq);
+    if (piece.is_empty())
+      continue;
 
-    for (Square sq = 0; sq < SQUARE_NO; sq++) {
-      Piece piece = board.piece_on(sq);
-      if (piece.is_empty())
-        continue;
-
-      EvalScore value = EvalScore(0);
-      switch (piece.type) {
-      case PAWN:
-        value = EvalScore(pst_lookup(PAWN_PST, piece.colour, sq));
-        break;
-      case KNIGHT:
-        value = EvalScore(pst_lookup(KNIGHT_PST, piece.colour, sq));
-        break;
-      case BISHOP:
-        value = EvalScore(pst_lookup(BISHOP_PST, piece.colour, sq));
-        break;
-      case ROOK:
-        value = EvalScore(pst_lookup(ROOK_PST, piece.colour, sq));
-        break;
-      case QUEEN:
-        value = EvalScore(pst_lookup(QUEEN_PST, piece.colour, sq));
-        break;
-      case KING: {
-        int mid = pst_lookup(KING_MID_PST, piece.colour, sq);
-        int end = pst_lookup(KING_END_PST, piece.colour, sq);
-        value = EvalScore(mid, end);
-        break;
-      }
-      default:
-        break;
-      }
-
-      board_score =
-          (piece.colour == WHITE) ? board_score + value : board_score - value;
+    EvalScore value = EvalScore(0);
+    switch (piece.type) {
+    case PAWN:
+      value = EvalScore(pst_lookup(PAWN_PST, piece.colour, sq));
+      break;
+    case KNIGHT:
+      value = EvalScore(pst_lookup(KNIGHT_PST, piece.colour, sq));
+      break;
+    case BISHOP:
+      value = EvalScore(pst_lookup(BISHOP_PST, piece.colour, sq));
+      break;
+    case ROOK:
+      value = EvalScore(pst_lookup(ROOK_PST, piece.colour, sq));
+      break;
+    case QUEEN:
+      value = EvalScore(pst_lookup(QUEEN_PST, piece.colour, sq));
+      break;
+    case KING: {
+      int mid = pst_lookup(KING_MID_PST, piece.colour, sq);
+      int end = pst_lookup(KING_END_PST, piece.colour, sq);
+      value = EvalScore(mid, end);
+      break;
     }
-
-    total = team_colour(context.search.root_player, b) == WHITE
-                ? total + board_score
-                : total - board_score;
+    default:
+      break;
+    }
+    score = (piece.colour == WHITE) ? score + value : score - value;
   }
 
-  return total;
+  return score;
 }

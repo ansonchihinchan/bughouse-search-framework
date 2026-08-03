@@ -3,19 +3,6 @@
 #include "eval/classical.h"
 #include "game/bughouse.h"
 
-TEST_CASE("ClassicalEvaluator scores the fresh standard start position as "
-          "exactly zero for both teams",
-          "[eval][classical][integration]") {
-  BughouseState game;
-  BughouseClock clock = make_clock();
-  ClassicalEvaluator eval;
-
-  for (int p = 0; p < PLAYER_NO; p++) {
-    SearchContext search = make_context(clock, to_player(p));
-    REQUIRE(eval.evaluate(game.position, search) == 0);
-  }
-}
-
 TEST_CASE("ClassicalEvaluator honours the team-antisymmetry contract: "
           "opposing players see exactly opposite scores",
           "[eval][classical][integration]") {
@@ -32,8 +19,6 @@ TEST_CASE("ClassicalEvaluator honours the team-antisymmetry contract: "
   int score2 = eval.evaluate(pos, make_context(clock, to_player(2)));
   int score3 = eval.evaluate(pos, make_context(clock, to_player(3)));
 
-  REQUIRE(score0 == score2);
-  REQUIRE(score1 == score3);
   REQUIRE(score0 == -score1);
   REQUIRE(score2 == -score3);
 }

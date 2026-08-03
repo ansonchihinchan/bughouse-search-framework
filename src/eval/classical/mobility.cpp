@@ -39,11 +39,7 @@ int mobility_score(const Board &board, Colour colour) {
 } // namespace
 
 EvalScore MobilityEvaluator::evaluate(const EvalContext &context) const {
-  int score = 0;
-  for (int b = 0; b < BOARD_NO; b++) {
-    const Board &board = context.position.boards[b];
-    Colour ours = team_colour(context.search.root_player, b);
-    score += mobility_score(board, ours) - mobility_score(board, flip(ours));
-  }
-  return EvalScore(score);
+  const Board &board = context.board;
+
+  return EvalScore(mobility_score(board, WHITE) - mobility_score(board, BLACK));
 }

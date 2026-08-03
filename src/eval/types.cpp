@@ -112,36 +112,26 @@ Bitboard king_zone(const Board &board, Colour colour) {
 
 } // namespace
 
-EvalContext to_context(const BughousePosition &position,
-                       const SearchContext &search) {
-  EvalContext context{position, search, {}, {}, {}};
+EvalContext to_context(const Board &board,
+                       const SearchContext &search_context) {
+  // TODO: PartnerContext
+  EvalContext context{board, search_context, {}, {}};
   init_attack_tables();
 
-  int board_phase[BOARD_NO];
+  int phase = 0;
+  for (Colour colour : {WHITE, BLACK}) {
+    for (PieceType pt : {KNIGHT, BISHOP, ROOK, QUEEN})
+      phase += PHASE_WEIGHT[pt] *
+               std::popcount(board.bitboard_piece(make_piece(colour, pt)));
 
-  for (int b = 0; b < BOARD_NO; b++) {
-    const Board &board = position.boards[b];
+    compute_pawn_info(board, colour, context.pawn_info.passed[colour],
+                      context.pawn_info.isolated[colour],
+                      context.pawn_info.doubled[colour]);
 
-    for (Colour colour : {WHITE, BLACK}) {
-      int phase = 0;
-      for (PieceType pt : {KNIGHT, BISHOP, ROOK, QUEEN})
-        phase += PHASE_WEIGHT[pt] *
-                 std::popcount(board.bitboard_piece(make_piece(colour, pt)));
-      context.material_info.boards[b].phase[colour] = phase;
-
-      compute_pawn_info(board, colour, context.pawn_info.passed[b][colour],
-                        context.pawn_info.isolated[b][colour],
-                        context.pawn_info.doubled[b][colour]);
-
-      context.attack_info.attacks[b][colour] = compute_attacks(board, colour);
-      context.attack_info.kingZone[b][colour] = king_zone(board, colour);
-    }
-
-    board_phase[b] = std::min(EvalScore::MAX_PHASE,
-                              context.material_info.boards[b].phase[WHITE] +
-                                  context.material_info.boards[b].phase[BLACK]);
+    context.attack_info.attacks[colour] = compute_attacks(board, colour);
+    context.attack_info.kingZone[colour] = king_zone(board, colour);
   }
 
-  context.material_info.phase = (board_phase[0] + board_phase[1]) / 2;
+  context.phase = std::min(EvalScore::MAX_PHASE, phase);
   return context;
 }
