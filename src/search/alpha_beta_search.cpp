@@ -104,7 +104,8 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
     BughouseUndo undo = apply_move(position, context.root_player, move);
 
     int score = -quiescence(
-        position, make_context(context.clock, next_player(context.root_player)),
+        position,
+        make_context(context.remaining, next_player(context.root_player)),
         -beta, -alpha, qply + 1, stop_token);
     undo_move(position, context.root_player, move, undo);
 

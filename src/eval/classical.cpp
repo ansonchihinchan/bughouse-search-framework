@@ -24,12 +24,15 @@ ClassicalEvaluator::ClassicalEvaluator() {
 int ClassicalEvaluator::evaluate(const BughousePosition &position,
                                  const SearchContext &search_context) const {
   EvalContext eval_context = to_context(position, search_context);
-
   EvalScore score = EvalScore(0);
   for (const auto &feature : features_)
     score += feature->evaluate(eval_context);
 
-  return score.final(eval_context.material_info.phase);
+  int white_score = score.final(eval_context.phase);
+  return team_colour(search_context.root_player,
+                     board_of(search_context.root_player)) == WHITE
+             ? white_score
+             : -white_score;
 }
 
 namespace {

@@ -328,7 +328,8 @@ int TreeSearch::alpha_beta(BughousePosition &position,
     BoardUndo null_undo = make_null_move(position, context.root_player);
 
     int score = -alpha_beta(
-        position, make_context(context.clock, next_player(context.root_player)),
+        position,
+        make_context(context.remaining, next_player(context.root_player)),
         DetailedMove{}, depth - 1 - params_.null_move_reduction, -beta,
         -beta + 1, ply + 1, stop_token, true);
     undo_null_move(position, context.root_player, null_undo);
@@ -419,7 +420,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
 
     bool check = position.boards[board_of(context.root_player)].is_in_check();
     SearchContext next =
-        make_context(context.clock, next_player(context.root_player));
+        make_context(context.remaining, next_player(context.root_player));
 
     int score;
 
@@ -555,7 +556,7 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
 
     bool check = working.boards[board_of(context.root_player)].is_in_check();
     SearchContext next =
-        make_context(context.clock, next_player(context.root_player));
+        make_context(context.remaining, next_player(context.root_player));
 
     int score;
 

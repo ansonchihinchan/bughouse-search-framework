@@ -40,11 +40,7 @@ int activity_score(const Board &board, Colour colour) {
 } // namespace
 
 EvalScore ActivityEvaluator::evaluate(const EvalContext &context) const {
-  int score = 0;
-  for (int b = 0; b < BOARD_NO; b++) {
-    const Board &board = context.position.boards[b];
-    Colour ours = team_colour(context.search.root_player, b);
-    score += activity_score(board, ours) - activity_score(board, flip(ours));
-  }
-  return EvalScore(score);
+  const Board &board = context.board;
+
+  return EvalScore(activity_score(board, WHITE) - activity_score(board, BLACK));
 }
