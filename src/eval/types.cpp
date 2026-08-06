@@ -112,10 +112,8 @@ Bitboard king_zone(const Board &board, Colour colour) {
 
 } // namespace
 
-EvalContext to_context(const Board &board,
-                       const SearchContext &search_context) {
-  // TODO: PartnerContext
-  EvalContext context{board, search_context, {}, {}};
+ClassicalContext to_classical_context(const Board &board) {
+  ClassicalContext context{board, {}, {}};
   init_attack_tables();
 
   int phase = 0;

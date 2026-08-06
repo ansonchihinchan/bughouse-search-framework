@@ -2,9 +2,9 @@
 
 #include "eval/classical.h"
 
-class ActivityEvaluator : public EvalFeature {
+class ActivityEvaluator : public ClassicalFeature {
 public:
-  EvalScore evaluate(const EvalContext &context) const override;
+  EvalScore evaluate(const ClassicalContext &context) const override;
 
-  const char *name() const override { return "activity"; }
+  const std::string_view name() const override { return "activity"; }
 };

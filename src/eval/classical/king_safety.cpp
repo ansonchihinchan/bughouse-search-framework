@@ -1,11 +1,9 @@
 #include "eval/classical/king_safety.h"
+#include "eval/const.h"
 #include "search/see.h"
 #include <bit>
 
 namespace {
-constexpr int ATTACK_UNIT_PENALTY = 8;
-constexpr int SHIELD_BONUS = 6;
-
 int king_danger(const Board &board, const AttackInfo &attack_info, Colour us) {
   Colour them = flip(us);
   Bitboard zone = attack_info.kingZone[us];
@@ -20,7 +18,7 @@ int king_danger(const Board &board, const AttackInfo &attack_info, Colour us) {
 }
 } // namespace
 
-EvalScore KingSafetyEvaluator::evaluate(const EvalContext &context) const {
+EvalScore KingSafetyEvaluator::evaluate(const ClassicalContext &context) const {
   const Board &board = context.board;
 
   return EvalScore(king_danger(board, context.attack_info, BLACK) -

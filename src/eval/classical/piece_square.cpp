@@ -15,7 +15,8 @@ int pst_lookup(const int table[64], Colour colour, Square sq) {
 }
 } // namespace
 
-EvalScore PieceSquareEvaluator::evaluate(const EvalContext &context) const {
+EvalScore
+PieceSquareEvaluator::evaluate(const ClassicalContext &context) const {
   const Board &board = context.board;
   EvalScore score = EvalScore(0);
 

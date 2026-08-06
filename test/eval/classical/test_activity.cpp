@@ -13,18 +13,14 @@ constexpr int SEMI_OPEN_FILE_BONUS = 8;
 TEST_CASE("ActivityEvaluator scores bare kings as zero", "[eval][activity]") {
   Board board;
   board.load_fen("4k3/8/8/8/8/8/8/4K3 w - - 0 1");
-  BughouseClock clock = make_clock();
-  SearchContext search = make_context(clock, to_player(0));
 
   ActivityEvaluator eval;
-  REQUIRE(eval.evaluate(to_context(board, search)).mid_game() == 0);
+  REQUIRE(eval.evaluate(to_classical_context(board)).mid_game() == 0);
 }
 
 TEST_CASE("ActivityEvaluator penalizes a minor piece sitting on its home "
           "square",
           "[eval][activity]") {
-  BughouseClock clock = make_clock();
-  SearchContext search = make_context(clock, to_player(0));
   ActivityEvaluator eval;
 
   Board undeveloped;
@@ -34,8 +30,9 @@ TEST_CASE("ActivityEvaluator penalizes a minor piece sitting on its home "
   developed.load_fen("4k3/8/8/8/8/3N4/8/4K3 w - - 0 1"); // Nd3
 
   int undeveloped_score =
-      eval.evaluate(to_context(undeveloped, search)).mid_game();
-  int developed_score = eval.evaluate(to_context(developed, search)).mid_game();
+      eval.evaluate(to_classical_context(undeveloped)).mid_game();
+  int developed_score =
+      eval.evaluate(to_classical_context(developed)).mid_game();
 
   REQUIRE(undeveloped_score == -UNDEVELOPED_PENALTY);
   REQUIRE(developed_score == 0);
@@ -44,8 +41,6 @@ TEST_CASE("ActivityEvaluator penalizes a minor piece sitting on its home "
 TEST_CASE("ActivityEvaluator rewards a rook on a fully open file over a "
           "semi-open or blocked one",
           "[eval][activity]") {
-  BughouseClock clock = make_clock();
-  SearchContext search = make_context(clock, to_player(0));
   ActivityEvaluator eval;
 
   Board open_file;
@@ -57,9 +52,10 @@ TEST_CASE("ActivityEvaluator rewards a rook on a fully open file over a "
   Board blocked;
   blocked.load_fen("4k3/8/8/8/8/8/5P2/4KR2 w - - 0 1"); // white pawn f2
 
-  int open_score = eval.evaluate(to_context(open_file, search)).mid_game();
-  int semi_open_score = eval.evaluate(to_context(semi_open, search)).mid_game();
-  int blocked_score = eval.evaluate(to_context(blocked, search)).mid_game();
+  int open_score = eval.evaluate(to_classical_context(open_file)).mid_game();
+  int semi_open_score =
+      eval.evaluate(to_classical_context(semi_open)).mid_game();
+  int blocked_score = eval.evaluate(to_classical_context(blocked)).mid_game();
 
   REQUIRE(open_score == OPEN_FILE_BONUS);
   REQUIRE(semi_open_score == SEMI_OPEN_FILE_BONUS);

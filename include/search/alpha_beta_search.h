@@ -25,9 +25,11 @@ protected:
 
   int leaf_eval(BughousePosition &position, const SearchContext &context,
                 int alpha, int beta, std::stop_token stop_token) override {
-    if (params_.quiescence_enabled && evaluator_.is_noisy(position, context))
+    if (params_.quiescence_enabled &&
+        evaluator_.is_noisy(position, context.root_player))
       return quiescence(position, context, alpha, beta, 0, stop_token);
     else
-      return evaluator_.evaluate(position, context);
+      return evaluator_.evaluate(position, context.root_player,
+                                 context.remaining);
   }
 };

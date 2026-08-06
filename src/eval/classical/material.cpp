@@ -2,7 +2,7 @@
 #include "search/see.h"
 #include <bit>
 
-EvalScore MaterialEvaluator::evaluate(const EvalContext &context) const {
+EvalScore MaterialEvaluator::evaluate(const ClassicalContext &context) const {
   const Board &board = context.board;
 
   int score = 0;

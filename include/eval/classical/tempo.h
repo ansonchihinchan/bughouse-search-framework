@@ -2,9 +2,9 @@
 
 #include "eval/classical.h"
 
-class TempoEvaluator : public EvalFeature {
+class TempoEvaluator : public ClassicalFeature {
 public:
-  EvalScore evaluate(const EvalContext &context) const override;
+  EvalScore evaluate(const ClassicalContext &context) const override;
 
-  const char *name() const override { return "tempo"; }
+  const std::string_view name() const override { return "tempo"; }
 };

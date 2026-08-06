@@ -367,9 +367,10 @@ int TreeSearch::alpha_beta(BughousePosition &position,
   int futility_eval = 0;
   int margin = 0;
   if (futility) {
-    float volatility = evaluator_.volatility(position, context);
+    float volatility = evaluator_.volatility(position, context.root_player);
     margin = futility_margin(depth, volatility);
-    futility_eval = evaluator_.evaluate(position, context);
+    futility_eval =
+        evaluator_.evaluate(position, context.root_player, context.remaining);
   }
 
   int best = -INF_SCORE;
@@ -515,8 +516,9 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
 
   // checkmate, stalemate
   if (moves.empty()) {
-    result.score =
-        in_check ? -INF_SCORE : evaluator_.evaluate(working, context);
+    result.score = in_check ? -INF_SCORE
+                            : evaluator_.evaluate(working, context.root_player,
+                                                  context.remaining);
     result.depth = depth;
     result.bound = TTBound::EXACT;
     return result;
@@ -603,7 +605,9 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
     move_index++;
   }
 
-  result.score = searched ? best : evaluator_.evaluate(working, context);
+  result.score = searched ? best
+                          : evaluator_.evaluate(working, context.root_player,
+                                                context.remaining);
   result.bound = result.score <= old_alpha ? TTBound::UPPER
                  : result.score >= beta    ? TTBound::LOWER
                                            : TTBound::EXACT;

@@ -8,9 +8,7 @@
 TEST_CASE("MaterialEvaluator scores the balanced start position as zero",
           "[eval][material]") {
   Board board;
-  BughouseClock clock = make_clock();
-  SearchContext search = make_context(clock, to_player(0));
-  EvalContext ctx = to_context(board, search);
+  ClassicalContext ctx = to_classical_context(board);
 
   MaterialEvaluator eval;
   EvalScore score = eval.evaluate(ctx);
@@ -23,9 +21,7 @@ TEST_CASE("MaterialEvaluator credits an extra queen on the root player's own "
           "[eval][material]") {
   Board board;
   board.load_fen("4k3/8/8/8/8/8/8/4KQ2 w - - 0 1");
-  BughouseClock clock = make_clock();
-  SearchContext search = make_context(clock, to_player(0));
-  EvalContext ctx = to_context(board, search);
+  ClassicalContext ctx = to_classical_context(board);
 
   MaterialEvaluator eval;
   EvalScore score = eval.evaluate(ctx);
@@ -36,30 +32,11 @@ TEST_CASE("MaterialEvaluator sums pieces consistently", "[eval][material]") {
   Board board;
   // +R +Q for White
   board.load_fen("4k3/8/8/8/8/8/8/2R1KQ2 w - - 0 1");
-  BughouseClock clock = make_clock();
-  SearchContext search = make_context(clock, to_player(0));
-  EvalContext ctx = to_context(board, search);
+  ClassicalContext ctx = to_classical_context(board);
 
   MaterialEvaluator eval;
   EvalScore score = eval.evaluate(ctx);
 
   int expected = SEE::PIECE_VALUE[ROOK] + SEE::PIECE_VALUE[QUEEN];
   REQUIRE(score.mid_game() == expected);
-}
-
-TEST_CASE("MaterialEvaluator is consistent between opposing players",
-          "[eval][material]") {
-  Board board;
-  board.load_fen("4k3/8/8/8/8/8/8/4KQ2 w - - 0 1");
-  BughouseClock clock = make_clock();
-
-  MaterialEvaluator eval;
-
-  EvalScore score_player0 =
-      eval.evaluate(to_context(board, make_context(clock, to_player(0))));
-  EvalScore score_player1 =
-      eval.evaluate(to_context(board, make_context(clock, to_player(1))));
-
-  REQUIRE(score_player0.mid_game() == score_player1.mid_game());
-  REQUIRE(score_player0.end_game() == score_player1.end_game());
 }
