@@ -1,10 +1,9 @@
 #include "eval/classical/mobility.h"
+#include "eval/const.h"
 #include "game/attacks.h"
 #include <bit>
 
 namespace {
-constexpr int MOBILITY_WEIGHT[PIECE_TYPE_NO] = {0, 0, 4, 3, 2, 1, 0};
-
 Bitboard piece_mobility(const Board &board, Piece piece, Square sq) {
   Bitboard all = board.bitboard_all();
   Bitboard own = board.bitboard_colour(piece.colour);
@@ -38,7 +37,7 @@ int mobility_score(const Board &board, Colour colour) {
 }
 } // namespace
 
-EvalScore MobilityEvaluator::evaluate(const EvalContext &context) const {
+EvalScore MobilityEvaluator::evaluate(const ClassicalContext &context) const {
   const Board &board = context.board;
 
   return EvalScore(mobility_score(board, WHITE) - mobility_score(board, BLACK));

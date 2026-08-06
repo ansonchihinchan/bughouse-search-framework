@@ -2,9 +2,9 @@
 
 #include "eval/classical.h"
 
-class KingSafetyEvaluator : public EvalFeature {
+class KingSafetyEvaluator : public ClassicalFeature {
 public:
-  EvalScore evaluate(const EvalContext &context) const override;
+  EvalScore evaluate(const ClassicalContext &context) const override;
 
-  const char *name() const override { return "king_safety"; }
+  const std::string_view name() const override { return "king_safety"; }
 };

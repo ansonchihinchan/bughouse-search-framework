@@ -18,12 +18,12 @@ namespace {
 // Minimal team-relative material evaluator
 class MaterialEvaluator : public Evaluator {
 public:
-  int evaluate(const BughousePosition &position,
-               const SearchContext &context) const override {
+  int evaluate(const BughousePosition &position, PlayerId root_player,
+               const std::array<int64_t, PLAYER_NO> &remaining) const override {
     int score = 0;
     for (int b = 0; b < BOARD_NO; b++) {
       const Board &board = position.boards[b];
-      Colour ours = team_colour(context.root_player, b);
+      Colour ours = team_colour(root_player, b);
       Colour theirs = flip(ours);
       for (PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN}) {
         score += SEE::PIECE_VALUE[pt] *

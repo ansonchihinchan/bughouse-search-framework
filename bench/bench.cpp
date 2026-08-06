@@ -13,9 +13,9 @@
 // Usage:
 //   bench_search [--depth N] [--max-nodes N] [--time-ms N] [--csv PATH]
 
-#include "game/board.h"
-#include "material_evaluator.h"
+#include "evaluator.h"
 #include "positions.h"
+#include "game/board.h"
 #include "search/alpha_beta_search.h"
 #include "search/null_move_search.h"
 #include "search/pvs.h"

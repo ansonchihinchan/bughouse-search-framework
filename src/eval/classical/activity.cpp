@@ -1,14 +1,8 @@
 #include "eval/classical/activity.h"
+#include "eval/const.h"
 #include <bit>
 
 namespace {
-constexpr int UNDEVELOPED_PENALTY = 15;
-constexpr int OPEN_FILE_BONUS = 15;
-constexpr int SEMI_OPEN_FILE_BONUS = 8;
-
-constexpr Bitboard FILE_A_BB = 0x0101010101010101ULL;
-Bitboard file_mask(int file) { return FILE_A_BB << file; }
-
 constexpr Bitboard WHITE_MINOR_HOME =
     (1ULL << to_square(1, 0)) | (1ULL << to_square(2, 0)) |
     (1ULL << to_square(5, 0)) | (1ULL << to_square(6, 0));
@@ -39,7 +33,7 @@ int activity_score(const Board &board, Colour colour) {
 }
 } // namespace
 
-EvalScore ActivityEvaluator::evaluate(const EvalContext &context) const {
+EvalScore ActivityEvaluator::evaluate(const ClassicalContext &context) const {
   const Board &board = context.board;
 
   return EvalScore(activity_score(board, WHITE) - activity_score(board, BLACK));

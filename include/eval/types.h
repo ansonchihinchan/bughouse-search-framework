@@ -1,11 +1,12 @@
 #pragma once
 
+#include "communication/context.h"
 #include "eval/score.h"
 #include "game/bughouse.h"
-#include "search/types.h"
+#include "game/piece_value.h"
 #include <array>
 
-constexpr int PHASE_WEIGHT[PIECE_TYPE_NO] = {0, 0, 1, 1, 2, 4, 0};
+inline constexpr auto &PHASE_WEIGHT = PieceValue::PHASE_WEIGHT;
 
 struct PawnInfo {
   std::array<Bitboard, COLOUR_NO> passed{};
@@ -18,21 +19,36 @@ struct AttackInfo {
   std::array<Bitboard, COLOUR_NO> kingZone{};
 };
 
-struct EvalContext {
+struct ClassicalContext {
   const Board &board;
-  const SearchContext &search;
 
   PawnInfo pawn_info;
   AttackInfo attack_info;
 
   int phase = EvalScore::MAX_PHASE;
-  // TODO: PartnerContext
 };
 
-EvalContext to_context(const Board &board, const SearchContext &search_context);
+ClassicalContext to_classical_context(const Board &board);
 
-inline EvalContext to_context(const BughousePosition &position,
-                              const SearchContext &search_context) {
-  return to_context(position.boards[board_of(search_context.root_player)],
-                    search_context);
-}
+struct BughouseContext {
+  const std::array<Pocket, PLAYER_NO> &pockets;
+  PlayerId root_player;
+  std::array<int64_t, PLAYER_NO> remaining;
+
+  const Pocket &own_pocket() const { return pockets[to_int(root_player)]; }
+  const Pocket &opp_pocket() const {
+    return pockets[to_int(next_player(root_player))];
+  }
+  const Pocket &partner_pocket() const {
+    return pockets[to_int(partner_of(root_player))];
+  }
+};
+
+BughouseContext to_bughouse_context(const BughousePosition &position,
+                                    PlayerId root_player);
+
+struct EvalContext {
+  ClassicalContext classical;
+  BughouseContext bughouse;
+  CommunicationContext communication;
+};

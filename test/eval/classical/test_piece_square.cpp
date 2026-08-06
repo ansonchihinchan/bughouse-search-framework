@@ -8,9 +8,7 @@
 TEST_CASE("PieceSquareEvaluator scores the standard start position as zero",
           "[eval][piece_square]") {
   Board board;
-  BughouseClock clock = make_clock();
-  SearchContext search = make_context(clock, to_player(0));
-  EvalContext ctx = to_context(board, search);
+  ClassicalContext ctx = to_classical_context(board);
 
   PieceSquareEvaluator eval;
   EvalScore score = eval.evaluate(ctx);
@@ -21,8 +19,6 @@ TEST_CASE("PieceSquareEvaluator scores the standard start position as zero",
 TEST_CASE("PieceSquareEvaluator rewards a knight on a strong central square "
           "over the same knight on its back-rank corner",
           "[eval][piece_square]") {
-  BughouseClock clock = make_clock();
-  SearchContext search = make_context(clock, to_player(0));
   PieceSquareEvaluator eval;
 
   Board centre;
@@ -31,16 +27,14 @@ TEST_CASE("PieceSquareEvaluator rewards a knight on a strong central square "
   Board corner;
   corner.load_fen("4k3/8/8/8/8/8/8/N3K3 w - - 0 1"); // Na1
 
-  int centre_score = eval.evaluate(to_context(centre, search)).mid_game();
-  int corner_score = eval.evaluate(to_context(corner, search)).mid_game();
+  int centre_score = eval.evaluate(to_classical_context(centre)).mid_game();
+  int corner_score = eval.evaluate(to_classical_context(corner)).mid_game();
 
   REQUIRE(centre_score > corner_score);
 }
 
 TEST_CASE("PieceSquareEvaluator mirrors PAWN_PST vertically for Black",
           "[eval][piece_square]") {
-  BughouseClock clock = make_clock();
-  SearchContext search = make_context(clock, to_player(0));
   PieceSquareEvaluator eval;
 
   // white pawn and black pawn one square away from promotion
@@ -51,9 +45,9 @@ TEST_CASE("PieceSquareEvaluator mirrors PAWN_PST vertically for Black",
   black_advanced.load_fen("4k3/8/8/8/8/8/4p3/4K3 w - - 0 1");
 
   int white_score =
-      eval.evaluate(to_context(white_advanced, search)).mid_game();
+      eval.evaluate(to_classical_context(white_advanced)).mid_game();
   int black_score =
-      eval.evaluate(to_context(black_advanced, search)).mid_game();
+      eval.evaluate(to_classical_context(black_advanced)).mid_game();
 
   REQUIRE(white_score == -black_score);
   REQUIRE(white_score > 0);
@@ -62,15 +56,13 @@ TEST_CASE("PieceSquareEvaluator mirrors PAWN_PST vertically for Black",
 TEST_CASE("PieceSquareEvaluator uses phase-dependent king tables (mid vs "
           "endgame placement differ)",
           "[eval][piece_square]") {
-  BughouseClock clock = make_clock();
-  SearchContext search = make_context(clock, to_player(0));
   PieceSquareEvaluator eval;
 
   // King in the centre
   Board centred_king;
   centred_king.load_fen("8/8/8/3K4/8/8/8/7k w - - 0 1");
 
-  EvalScore score = eval.evaluate(to_context(centred_king, search));
+  EvalScore score = eval.evaluate(to_classical_context(centred_king));
 
   REQUIRE(score.mid_game() < score.end_game());
 }

@@ -1,11 +1,8 @@
 #include "eval/classical/pawn.h"
+#include "eval/const.h"
 #include <bit>
 
 namespace {
-constexpr int PASSED_BONUS = 20;
-constexpr int ISOLATED_PENALTY = 15;
-constexpr int DOUBLED_PENALTY = 10;
-
 int pawn_score(const PawnInfo &info, Colour colour) {
   int score = 0;
   score += PASSED_BONUS * std::popcount(info.passed[colour]);
@@ -15,7 +12,7 @@ int pawn_score(const PawnInfo &info, Colour colour) {
 }
 } // namespace
 
-EvalScore PawnEvaluator::evaluate(const EvalContext &context) const {
+EvalScore PawnEvaluator::evaluate(const ClassicalContext &context) const {
   return EvalScore(pawn_score(context.pawn_info, WHITE) -
                    pawn_score(context.pawn_info, BLACK));
 }

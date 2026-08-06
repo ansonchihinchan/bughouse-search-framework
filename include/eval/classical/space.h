@@ -2,9 +2,9 @@
 
 #include "eval/classical.h"
 
-class SpaceEvaluator : public EvalFeature {
+class SpaceEvaluator : public ClassicalFeature {
 public:
-  EvalScore evaluate(const EvalContext &context) const override;
+  EvalScore evaluate(const ClassicalContext &context) const override;
 
-  const char *name() const override { return "space"; }
+  const std::string_view name() const override { return "space"; }
 };

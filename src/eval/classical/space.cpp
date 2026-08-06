@@ -1,12 +1,8 @@
 #include "eval/classical/space.h"
+#include "eval/const.h"
 #include <bit>
 
 namespace {
-// White: ranks 2-3, Black: ranks 6-7
-constexpr Bitboard WHITE_SPACE_RANKS = 0x0000000000FFFF00ULL;
-constexpr Bitboard BLACK_SPACE_RANKS = 0x00FFFF0000000000ULL;
-constexpr int SPACE_WEIGHT = 2;
-
 int space_score(const Board &board, const AttackInfo &attack_info,
                 Colour colour) {
   // Space only matters with enough pieces left to fight over it
@@ -22,7 +18,7 @@ int space_score(const Board &board, const AttackInfo &attack_info,
 }
 } // namespace
 
-EvalScore SpaceEvaluator::evaluate(const EvalContext &context) const {
+EvalScore SpaceEvaluator::evaluate(const ClassicalContext &context) const {
   const Board &board = context.board;
 
   return EvalScore(space_score(board, context.attack_info, WHITE) -

@@ -41,19 +41,22 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
   stats_.nodes++;
 
   if (stop_token.stop_requested() || deadline_reached())
-    return evaluator_.evaluate(position, context);
+    return evaluator_.evaluate(position, context.root_player,
+                               context.remaining);
 
   const Board &board = position.boards[board_of(context.root_player)];
   bool in_check = board.is_in_check();
   Colour mover_colour = colour_of_player(context.root_player);
 
   if (in_check && qply >= params_.quiescence_max_ply)
-    return evaluator_.evaluate(position, context);
+    return evaluator_.evaluate(position, context.root_player,
+                               context.remaining);
 
   int stand_pat = 0;
 
   if (!in_check) {
-    stand_pat = evaluator_.evaluate(position, context);
+    stand_pat =
+        evaluator_.evaluate(position, context.root_player, context.remaining);
 
     if (stand_pat >= beta)
       return stand_pat;
