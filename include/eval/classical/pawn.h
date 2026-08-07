@@ -1,6 +1,6 @@
 #pragma once
 
-#include "eval/classical.h"
+#include "eval/feature.h"
 
 class PawnEvaluator : public ClassicalFeature {
 public:

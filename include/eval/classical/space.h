@@ -1,6 +1,6 @@
 #pragma once
 
-#include "eval/classical.h"
+#include "eval/feature.h"
 
 class SpaceEvaluator : public ClassicalFeature {
 public:

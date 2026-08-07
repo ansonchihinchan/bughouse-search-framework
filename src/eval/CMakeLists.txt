@@ -10,6 +10,8 @@ add_library(eval
     classical/piece_square.cpp
     classical/space.cpp
     classical/tempo.cpp
+    bughouse/pocket.cpp
+    bughouse/drop.cpp
 )
 
 target_include_directories(eval
