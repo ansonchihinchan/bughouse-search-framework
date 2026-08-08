@@ -1,5 +1,7 @@
 #include "eval/classical.h"
 #include "eval/evaluator.h"
+#include "eval/feature.h"
+#include <vector>
 
 class BughouseEvaluator : public Evaluator {
 public:

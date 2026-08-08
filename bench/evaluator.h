@@ -2,14 +2,14 @@
 
 #include "eval/evaluator.h"
 #include "game/bughouse.h"
+#include "game/piece_value.h"
 
 // Simple material-only evaluator
 class BenchEvaluator : public Evaluator {
 public:
   int evaluate(const BughousePosition &position, PlayerId root_player,
                const std::array<int64_t, PLAYER_NO> &remaining) const override {
-    static constexpr int VALUE[PIECE_TYPE_NO] = {0,   100, 320,  330,
-                                                 550, 900, 20000};
+    static constexpr const std::array<int, PIECE_TYPE_NO> &VALUE = PieceValue::PIECE_VALUE;
 
     int my_team = to_int(root_player) % 2;
     int score = 0;

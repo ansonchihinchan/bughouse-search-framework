@@ -2,6 +2,7 @@
 #include "game/attacks.h"
 #include "game/movegen.h"
 #include "game/zobrist.h"
+#include "game/bitboards.h"
 #include <bit>
 #include <cassert>
 #include <iostream>
@@ -189,17 +190,8 @@ bool Board::is_attacked(Square square, Colour colour) const {
 
   // Pawns
   Bitboard pawns = bitboards[make_piece(colour, PAWN).index()];
-  if (colour == WHITE) {
-    if (((pawns << 7) & ~0x8080808080808080ULL) & (1ULL << square))
-      return true;
-    if (((pawns << 9) & ~0x0101010101010101ULL) & (1ULL << square))
-      return true;
-  } else {
-    if (((pawns >> 7) & ~0x0101010101010101ULL) & (1ULL << square))
-      return true;
-    if (((pawns >> 9) & ~0x8080808080808080ULL) & (1ULL << square))
-      return true;
-  }
+  if (Bitboards::pawn_attacks(pawns, colour) & (1ULL << square)) 
+    return true;
 
   if (knight_attacks(square) & bitboards[make_piece(colour, KNIGHT).index()])
     return true;

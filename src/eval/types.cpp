@@ -1,30 +1,27 @@
 #include "eval/types.h"
 #include "game/attacks.h"
+#include "game/bitboards.h"
 #include <algorithm>
 #include <bit>
 
 namespace {
-
-constexpr Bitboard FILE_A_BB = 0x0101010101010101ULL;
-Bitboard file_mask(int file) { return FILE_A_BB << file; }
-
 Bitboard forward_mask(Square sq, Colour colour) {
   int file = file_of(sq);
   int rank = rank_of(sq);
 
-  Bitboard files = file_mask(file);
+  Bitboard files = Bitboards::file_mask(file);
   if (file > 0)
-    files |= file_mask(file - 1);
+    files |= Bitboards::file_mask(file - 1);
   if (file < 7)
-    files |= file_mask(file + 1);
+    files |= Bitboards::file_mask(file + 1);
 
   Bitboard ranks_ahead = 0;
   if (colour == WHITE) {
     for (int r = rank + 1; r < 8; r++)
-      ranks_ahead |= 0xFFULL << (r * 8);
+      ranks_ahead |= Bitboards::rank_mask(r);
   } else {
     for (int r = rank - 1; r >= 0; r--)
-      ranks_ahead |= 0xFFULL << (r * 8);
+      ranks_ahead |= Bitboards::rank_mask(r);
   }
   return files & ranks_ahead;
 }
@@ -47,14 +44,14 @@ void compute_pawn_info(const Board &board, Colour colour, Bitboard &passed,
     int file = file_of(sq);
     Bitboard adjacent_files = 0;
     if (file > 0)
-      adjacent_files |= file_mask(file - 1);
+      adjacent_files |= Bitboards::file_mask(file - 1);
     if (file < 7)
-      adjacent_files |= file_mask(file + 1);
+      adjacent_files |= Bitboards::file_mask(file + 1);
     if (!(adjacent_files & friendly))
       isolated |= 1ULL << sq;
 
     // Flags every pawn on a doubled file
-    if (std::popcount(file_mask(file) & friendly) > 1)
+    if (std::popcount(Bitboards::file_mask(file) & friendly) > 1)
       doubled |= 1ULL << sq;
   }
 }

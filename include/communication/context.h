@@ -26,8 +26,9 @@ struct PartnerContext {
   float king_danger = 0.f;
   int phase = 0;
 
-  // message-derived
-  PieceType requested = NO_PIECE_TYPE;
+  PieceRequest piece_request{};
+  StrategyRequest strat_request{};
+
   bool danger = false;
   bool stall = false;
 };

@@ -1,5 +1,6 @@
 #include "eval/classical/activity.h"
 #include "eval/const.h"
+#include "game/bitboards.h"
 #include <bit>
 
 namespace {
@@ -24,7 +25,7 @@ int activity_score(const Board &board, Colour colour) {
   while (rooks) {
     Square sq = static_cast<Square>(std::countr_zero(rooks));
     rooks &= rooks - 1;
-    Bitboard file = file_mask(file_of(sq));
+    Bitboard file = Bitboards::file_mask(file_of(sq));
     if (!(file & own_pawns))
       score += (file & opp_pawns) ? SEMI_OPEN_FILE_BONUS : OPEN_FILE_BONUS;
   }
