@@ -2,6 +2,7 @@
 
 #include "game/types.h"
 
+// clang-format off
 // --- Weights ---
 
 // classical/activity
@@ -35,10 +36,14 @@ constexpr int PARTNER_KING_DANGER_CLAMP = 20;
 
 // bughouse/pocket
 constexpr int POCKET_OPENNESS_MIDPOINT = 8; // 2 pts per open file, 8 files
-constexpr int POCKET_OPENNESS_WEIGHT_MID[PIECE_TYPE_NO] = {0, 0, -3, 3, 4, 1, 0};
-constexpr int POCKET_OPENNESS_WEIGHT_END[PIECE_TYPE_NO] = {0, 1, -1, 4, 5, 1, 0};
-constexpr int POCKET_KING_ATTACK_WEIGHT_MID[PIECE_TYPE_NO] = {0, 1, 4, 3, 3, 6, 0};
-constexpr int POCKET_KING_ATTACK_WEIGHT_END[PIECE_TYPE_NO] = {0, 2, 2, 2, 3, 5, 0};
+constexpr int POCKET_OPENNESS_WEIGHT_MID[PIECE_TYPE_NO] = {0, 0, -3, 3,
+                                                           4, 1, 0};
+constexpr int POCKET_OPENNESS_WEIGHT_END[PIECE_TYPE_NO] = {0, 1, -1, 4,
+                                                           5, 1, 0};
+constexpr int POCKET_KING_ATTACK_WEIGHT_MID[PIECE_TYPE_NO] = {0, 1, 4, 3,
+                                                              3, 6, 0};
+constexpr int POCKET_KING_ATTACK_WEIGHT_END[PIECE_TYPE_NO] = {0, 2, 2, 2,
+                                                              3, 5, 0};
 constexpr int POCKET_PARTNER_CONFIDENCE_DIVISOR = 2;
 
 // bughouse/drop
@@ -46,8 +51,8 @@ constexpr int DROP_CHECK_BONUS_MID = 25;
 constexpr int DROP_CHECK_BONUS_END = 40;
 constexpr int DROP_MATING_NET_BONUS_MID = 60;
 constexpr int DROP_MATING_NET_BONUS_END = 90;
-constexpr int DROP_FORK_WEIGHT_MID = 35;  // % of attacked material, mid game
-constexpr int DROP_FORK_WEIGHT_END = 45;  // % of attacked material, end game
+constexpr int DROP_FORK_WEIGHT_MID = 35; // % attacked material
+constexpr int DROP_FORK_WEIGHT_END = 45; // % attacked material
 constexpr int DROP_PROMOTION_SUPPORT_MID = 15;
 constexpr int DROP_PROMOTION_SUPPORT_END = 45;
 constexpr int DROP_DEFENSE_BONUS_MID = 20;
@@ -70,21 +75,33 @@ constexpr float EXCHANGE_THREAT_DANGER_WEIGHT_END = 1.0f;
 constexpr float EXCHANGE_THREAT_DANGER_FLAG_BONUS_MID = 0.6f;
 constexpr float EXCHANGE_THREAT_DANGER_FLAG_BONUS_END = 0.4f;
 
-// bughouse/communication
-constexpr float COMM_URGENCY_WEIGHT[4] = {0.4f, 0.7f, 1.0f, 1.5f};
-constexpr int COMM_ETA_HORIZON_PLIES = 6;
-constexpr int COMM_REQUEST_FULFILLED_BONUS_MID = 30;
-constexpr int COMM_REQUEST_FULFILLED_BONUS_END = 45;
-constexpr int COMM_REQUEST_UNMET_PENALTY_MID = 18;
-constexpr int COMM_REQUEST_UNMET_PENALTY_END = 10;
-constexpr int COMM_PREDICTED_MATERIAL_WEIGHT_MID = 60; // % of predicted net swing, mid game
-constexpr int COMM_PREDICTED_MATERIAL_WEIGHT_END = 80; // % of predicted net swing, end game
-constexpr int COMM_ATTACK_READINESS_BONUS_MID = 25;
-constexpr int COMM_ATTACK_READINESS_BONUS_END = 15;
-constexpr int COMM_DEFENCE_READINESS_BONUS_MID = 15;
-constexpr int COMM_DEFENCE_READINESS_BONUS_END = 25;
-constexpr int COMM_STRATEGY_ALIGNMENT_BONUS_MID = 12;
-constexpr int COMM_STRATEGY_ALIGNMENT_BONUS_END = 12;
+// bughouse/partner
+constexpr float PARTNER_URGENCY_WEIGHT[4] = {0.4f, 0.7f, 1.0f, 1.5f};
+constexpr int PARTNER_ETA_HORIZON_PLIES = 6;
+constexpr int PARTNER_REQUEST_FULFILLED_BONUS_MID = 30;
+constexpr int PARTNER_REQUEST_FULFILLED_BONUS_END = 45;
+constexpr int PARTNER_REQUEST_UNMET_PENALTY_MID = 18;
+constexpr int PARTNER_REQUEST_UNMET_PENALTY_END = 10;
+constexpr int PARTNER_PREDICTED_MATERIAL_WEIGHT_MID = 60; // % predicted net swing
+constexpr int PARTNER_PREDICTED_MATERIAL_WEIGHT_END = 80; // % predicted net swing
+constexpr int PARTNER_ATTACK_READINESS_BONUS_MID = 25;
+constexpr int PARTNER_ATTACK_READINESS_BONUS_END = 15;
+constexpr int PARTNER_DEFENCE_READINESS_BONUS_MID = 15;
+constexpr int PARTNER_DEFENCE_READINESS_BONUS_END = 25;
+constexpr int PARTNER_STRATEGY_ALIGNMENT_BONUS_MID = 12;
+constexpr int PARTNER_STRATEGY_ALIGNMENT_BONUS_END = 12;
+
+// bughouse/prediction
+constexpr int PREDICTION_MATERIAL_WEIGHT_MID = 60; // % predicted net swing
+constexpr int PREDICTION_MATERIAL_WEIGHT_END = 80;
+constexpr int PREDICTION_INCOMING_PIECE_WEIGHT_MID = 15; // % piece value/probability
+constexpr int PREDICTION_INCOMING_PIECE_WEIGHT_END = 25;
+constexpr int PREDICTION_ATTACK_CONFIDENCE_BONUS_MID = 30;
+constexpr int PREDICTION_ATTACK_CONFIDENCE_BONUS_END = 20;
+constexpr int PREDICTION_DEFENCE_RISK_PENALTY_MID = 20;
+constexpr int PREDICTION_DEFENCE_RISK_PENALTY_END = 32;
+constexpr float PREDICTION_VOLATILITY_DAMPENING = 0.5f; // point predictions dampens as volatility rises
+
 
 // bughouse/king_danger
 constexpr int KING_DANGER_CHECK_SQUARE_CAP = 4;
@@ -93,3 +110,18 @@ constexpr int KING_DANGER_WEIGHT_END[PIECE_TYPE_NO] = {0, 4, 6, 6, 8, 10, 0};
 constexpr float KING_DANGER_EXTRA_COPY_BONUS = 0.25f;
 constexpr float KING_DANGER_BOX_WEIGHT_MID = 0.6f;
 constexpr float KING_DANGER_BOX_WEIGHT_END = 0.3f;
+
+// bughouse/initiative
+constexpr int INITIATIVE_ATTACKER_UNIT_MID = 6;
+constexpr int INITIATIVE_ATTACKER_UNIT_END = 9;
+constexpr int INITIATIVE_MULTI_ATTACKER_BONUS_MID = 20;
+constexpr int INITIATIVE_MULTI_ATTACKER_BONUS_END = 30;
+constexpr int INITIATIVE_CHECK_MOVE_MID = 18;
+constexpr int INITIATIVE_CHECK_MOVE_END = 28;
+constexpr int INITIATIVE_CHECK_MOVE_CAP = 3;
+constexpr int INITIATIVE_FORCING_CHAIN_BONUS_MID = 25;
+constexpr int INITIATIVE_FORCING_CHAIN_BONUS_END = 40;
+constexpr int INITIATIVE_DROP_CHECK_READY_MID = 14;
+constexpr int INITIATIVE_DROP_CHECK_READY_END = 22;
+constexpr int INITIATIVE_TEMPO_BONUS_MID = 15;
+constexpr int INITIATIVE_TEMPO_BONUS_END = 10;

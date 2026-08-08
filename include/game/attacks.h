@@ -18,6 +18,8 @@ Bitboard bishop_attacks(Square square, Bitboard bitboard);
 Bitboard rook_attacks(Square square, Bitboard bitboard);
 Bitboard queen_attacks(Square square, Bitboard bitboard);
 
+Bitboard piece_attacks(PieceType pt, Colour colour, Square sq, Bitboard occ);
+
 bool move_gives_check(const Board &board, Move move, Colour colour);
 bool drop_gives_check(const Board &board, PieceType pt, Square to,
                       Colour colour);

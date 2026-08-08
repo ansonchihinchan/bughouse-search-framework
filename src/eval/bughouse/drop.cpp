@@ -10,30 +10,13 @@
 #include <vector>
 
 namespace {
-Bitboard piece_attack_bb(PieceType pt, Colour colour, Square sq, Bitboard occ) {
-  switch (pt) {
-  case PAWN:
-    return pawn_attacks(1ULL << sq, colour);
-  case KNIGHT:
-    return knight_attacks(sq);
-  case BISHOP:
-    return bishop_attacks(sq, occ);
-  case ROOK:
-    return rook_attacks(sq, occ);
-  case QUEEN:
-    return bishop_attacks(sq, occ) | rook_attacks(sq, occ);
-  default:
-    return 0;
-  }
-}
-
 bool square_gives_check(const Board &board, PieceType pt, Colour colour,
                         Square to) {
   Bitboard enemy_king = board.bitboard_piece(make_piece(flip(colour), KING));
   if (!enemy_king)
     return false;
   Bitboard occ = board.bitboard_all() | (1ULL << to);
-  return (piece_attack_bb(pt, colour, to, occ) & enemy_king) != 0;
+  return (piece_attacks(pt, colour, to, occ) & enemy_king) != 0;
 }
 
 // return the number of king's flight squares remain uncovered by the drop
@@ -139,7 +122,7 @@ EvalScore best_drop_threat(const Board &board, PieceType pt, Colour colour,
 
     Square to = move.to;
     Bitboard occ_after = board.bitboard_all() | (1ULL << to);
-    Bitboard attack_bb = piece_attack_bb(pt, colour, to, occ_after);
+    Bitboard attack_bb = piece_attacks(pt, colour, to, occ_after);
 
     int mid = 0, end = 0;
 

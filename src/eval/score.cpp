@@ -21,3 +21,9 @@ EvalScore operator-(EvalScore lhs, const EvalScore &rhs) {
   lhs -= rhs;
   return lhs;
 }
+
+EvalScore EvalScore::scale(float weight) {
+  mid_game_ *= weight;
+  end_game_ *= weight;
+  return *this;
+}

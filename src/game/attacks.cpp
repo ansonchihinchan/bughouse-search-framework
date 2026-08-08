@@ -72,6 +72,23 @@ Bitboard queen_attacks(Square square, Bitboard bitboard) {
   return bishop_attacks(square, bitboard) | rook_attacks(square, bitboard);
 }
 
+Bitboard piece_attacks(PieceType pt, Colour colour, Square sq, Bitboard occ) {
+  switch (pt) {
+  case PAWN:
+    return pawn_attacks(1ULL << sq, colour);
+  case KNIGHT:
+    return knight_attacks(sq);
+  case BISHOP:
+    return bishop_attacks(sq, occ);
+  case ROOK:
+    return rook_attacks(sq, occ);
+  case QUEEN:
+    return bishop_attacks(sq, occ) | rook_attacks(sq, occ);
+  default:
+    return 0;
+  }
+}
+
 bool drop_gives_check(const Board &board, PieceType pt, Square to,
                       Colour colour) {
   Colour enemy = flip(colour);

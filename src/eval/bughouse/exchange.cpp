@@ -19,14 +19,14 @@ Bitboard contested(const Board &board, Colour colour, Bitboard attacked_by,
 }
 
 float urgency_weight(Urgency urgency) {
-  return COMM_URGENCY_WEIGHT[static_cast<int>(urgency)];
+  return PARTNER_URGENCY_WEIGHT[static_cast<int>(urgency)];
 }
 
 float eta_weight(int eta_plies) {
-  if (eta_plies < 0 || eta_plies >= COMM_ETA_HORIZON_PLIES)
+  if (eta_plies < 0 || eta_plies >= PARTNER_ETA_HORIZON_PLIES)
     return 0.f;
-  return static_cast<float>(COMM_ETA_HORIZON_PLIES - eta_plies) /
-         static_cast<float>(COMM_ETA_HORIZON_PLIES);
+  return static_cast<float>(PARTNER_ETA_HORIZON_PLIES - eta_plies) /
+         static_cast<float>(PARTNER_ETA_HORIZON_PLIES);
 }
 
 template <typename MultiplierFunc>

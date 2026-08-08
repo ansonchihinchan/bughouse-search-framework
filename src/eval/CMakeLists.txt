@@ -10,11 +10,13 @@ add_library(eval
     classical/piece_square.cpp
     classical/space.cpp
     classical/tempo.cpp
-    bughouse/communication.cpp
     bughouse/drop.cpp
     bughouse/exchange.cpp
+    bughouse/initiative.cpp
     bughouse/king_danger.cpp
+    bughouse/partner.cpp
     bughouse/pocket.cpp
+    bughouse/prediction.cpp
 )
 
 target_include_directories(eval
