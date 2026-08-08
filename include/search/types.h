@@ -100,6 +100,9 @@ struct SearchParams {
 
   bool futility_enabled = true;
   int futility_max_depth = 3;
+  int futility_base_margin = 150;
+  int futility_per_depth_margin = 150;
+  int futility_volatility_scale = 600;
 
   bool age_history = true;
 };

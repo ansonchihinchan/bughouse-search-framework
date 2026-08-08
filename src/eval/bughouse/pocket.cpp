@@ -1,6 +1,7 @@
 #include "eval/bughouse/pocket.h"
 #include "eval/const.h"
 #include "game/piece_value.h"
+#include "game/bitboards.h"
 
 #include <algorithm>
 #include <bit>
@@ -14,7 +15,7 @@ int file_openness(const Board &board) {
 
   int openness = 0;
   for (int file = 0; file < 8; file++) {
-    Bitboard mask = file_mask(file);
+    Bitboard mask = Bitboards::file_mask(file);
     bool white_present = (white_pawns & mask) != 0;
     bool black_present = (black_pawns & mask) != 0;
 

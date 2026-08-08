@@ -166,11 +166,8 @@ bool TreeSearch::is_reducible(const BughousePosition &position,
 }
 
 int TreeSearch::futility_margin(int depth, float volatility) const {
-  constexpr int BASE_MARGIN = 150;
-  constexpr int PER_DEPTH_MARGIN = 150;
-  constexpr int VOLATILITY_SCALE = 600;
-  return BASE_MARGIN + PER_DEPTH_MARGIN * depth +
-         static_cast<int>(VOLATILITY_SCALE * volatility);
+  return params_.futility_base_margin + params_.futility_per_depth_margin * depth +
+         static_cast<int>(params_.futility_volatility_scale * volatility);
 }
 
 void TreeSearch::order_moves(const BughousePosition &position,

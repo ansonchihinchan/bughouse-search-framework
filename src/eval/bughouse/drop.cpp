@@ -3,6 +3,7 @@
 #include "game/attacks.h"
 #include "game/movegen.h"
 #include "game/piece_value.h"
+#include "game/bitboards.h"
 
 #include <algorithm>
 #include <bit>
@@ -10,19 +11,10 @@
 #include <vector>
 
 namespace {
-Bitboard pawn_capture_squares(Square sq, Colour colour) {
-  Bitboard bb = 1ULL << sq;
-  if (colour == WHITE)
-    return ((bb << 7) & ~0x8080808080808080ULL) |
-           ((bb << 9) & ~0x0101010101010101ULL);
-  return ((bb >> 7) & ~0x0101010101010101ULL) |
-         ((bb >> 9) & ~0x8080808080808080ULL);
-}
-
 Bitboard piece_attack_bb(PieceType pt, Colour colour, Square sq, Bitboard occ) {
   switch (pt) {
   case PAWN:
-    return pawn_capture_squares(sq, colour);
+    return Bitboards::pawn_attacks(1ULL << sq, colour);
   case KNIGHT:
     return knight_attacks(sq);
   case BISHOP:
@@ -70,8 +62,6 @@ int fork_value(const Board &board, Colour attacker_colour, Bitboard attack_bb) {
   return hits >= 2 ? value : 0;
 }
 
-// True if the drop defends a pawn one step from promoting, or covers its
-// queening square, without occupying and blocking
 bool supports_promotion(const Board &board, Colour colour, Bitboard drop_attacks,
                         Square drop_sq) {
   Bitboard pawns = board.bitboard_piece(make_piece(colour, PAWN));
@@ -93,8 +83,6 @@ bool supports_promotion(const Board &board, Colour colour, Bitboard drop_attacks
   return false;
 }
 
-// True if `sq` lies strictly between `a` and `b` on a shared rank, file, or
-// diagonal.
 bool on_ray_between(Square a, Square b, Square sq) {
   int fa = file_of(a), ra = rank_of(a);
   int fb = file_of(b), rb = rank_of(b);
@@ -118,8 +106,6 @@ bool on_ray_between(Square a, Square b, Square sq) {
   return false;
 }
 
-// True if `colour`'s king is currently in check and `drop_sq` would
-// interpose on the line from a checking slider.
 bool is_defensive_square(const Board &board, Colour colour, Square drop_sq) {
   Bitboard king_bb = board.bitboard_piece(make_piece(colour, KING));
   if (!king_bb)
@@ -142,10 +128,6 @@ bool is_defensive_square(const Board &board, Colour colour, Square drop_sq) {
   return false;
 }
 
-// Best single square for dropping `pt`, scored across every tactical theme.
-// We take the max rather than the sum across squares: only one drop can
-// actually be played, so we want the strongest available shot, not the
-// total of every possibility.
 EvalScore best_drop_threat(const Board &board, PieceType pt, Colour colour,
                            Bitboard enemy_king_zone,
                            const std::vector<Move> &drops) {
