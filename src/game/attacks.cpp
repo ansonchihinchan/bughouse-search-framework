@@ -1,4 +1,5 @@
 #include "game/attacks.h"
+#include "game/bitboards.h"
 #include <mutex>
 
 namespace {
@@ -31,18 +32,28 @@ void init_attack_tables() {
     const int knight_offs[] = {17, 15, 10, 6, -6, -10, -15, -17};
     const int king_offs[] = {9, 8, 7, 1, -1, -7, -8, -9};
     for (int s = 0; s < 64; s++) {
-    for (int off : knight_offs) {
-      int t = s + off;
-      if (t >= 0 && t < 64 && std::abs((t & 7) - (s & 7)) <= 2)
-        KnightAttacks[s] |= 1ULL << t;
-    }
-    for (int off : king_offs) {
-      int t = s + off;
-      if (t >= 0 && t < 64 && std::abs((t & 7) - (s & 7)) <= 1)
-        KingAttacks[s] |= 1ULL << t;
+      for (int off : knight_offs) {
+        int t = s + off;
+        if (t >= 0 && t < 64 && std::abs((t & 7) - (s & 7)) <= 2)
+          KnightAttacks[s] |= 1ULL << t;
+      }
+      for (int off : king_offs) {
+        int t = s + off;
+        if (t >= 0 && t < 64 && std::abs((t & 7) - (s & 7)) <= 1)
+          KingAttacks[s] |= 1ULL << t;
       }
     }
-  }); 
+  });
+}
+
+Bitboard pawn_attacks(Bitboard pawns, Colour colour) {
+  if (colour == WHITE) {
+    return ((pawns << 7) & ~Bitboards::FILE_H) |
+           ((pawns << 9) & ~Bitboards::FILE_A);
+  }
+
+  return ((pawns >> 7) & ~Bitboards::FILE_A) |
+         ((pawns >> 9) & ~Bitboards::FILE_H);
 }
 
 Bitboard knight_attacks(Square square) { return KnightAttacks[square]; }

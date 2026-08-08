@@ -15,14 +15,4 @@ constexpr Bitboard rank_mask(int rank) {
     return 0xFFULL << (rank * 8);
 }
 
-constexpr Bitboard pawn_attacks(Bitboard pawns, Colour colour) {
-    if (colour == WHITE) {
-        return ((pawns << 7) & ~FILE_H) |
-               ((pawns << 9) & ~FILE_A);
-    }
-
-    return ((pawns >> 7) & ~FILE_A) |
-           ((pawns >> 9) & ~FILE_H);
-}
-
 } // namespace Bitboards

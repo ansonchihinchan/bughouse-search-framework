@@ -30,6 +30,9 @@ constexpr int SPACE_WEIGHT = 2;
 // classical/tempo
 constexpr int TEMPO_BONUS = 12;
 
+// bughouse/shared
+constexpr int PARTNER_KING_DANGER_CLAMP = 20;
+
 // bughouse/pocket
 constexpr int POCKET_OPENNESS_MIDPOINT = 8; // 2 pts per open file, 8 files
 constexpr int POCKET_OPENNESS_WEIGHT_MID[PIECE_TYPE_NO] = {0, 0, -3, 3, 4, 1, 0};
@@ -66,7 +69,6 @@ constexpr float EXCHANGE_THREAT_DANGER_WEIGHT_MID = 1.5f;
 constexpr float EXCHANGE_THREAT_DANGER_WEIGHT_END = 1.0f;
 constexpr float EXCHANGE_THREAT_DANGER_FLAG_BONUS_MID = 0.6f;
 constexpr float EXCHANGE_THREAT_DANGER_FLAG_BONUS_END = 0.4f;
-constexpr int PARTNER_KING_DANGER_CLAMP = 20;
 
 // bughouse/communication
 constexpr float COMM_URGENCY_WEIGHT[4] = {0.4f, 0.7f, 1.0f, 1.5f};

@@ -47,7 +47,7 @@ TEST_CASE("PawnEvaluator removes the passed bonus when an enemy pawn blocks "
   REQUIRE(blocked_score < unopposed_score);
 }
 
-TEST_CASE("PawnEvaluator penalizes doubled pawns on the same file",
+TEST_CASE("PawnEvaluator penalises doubled pawns on the same file",
           "[eval][pawn]") {
   Board board;
   board.load_fen("4k3/8/8/8/4P3/8/4P3/3K4 w - - 0 1"); // e2 + e4

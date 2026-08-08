@@ -18,7 +18,7 @@ TEST_CASE("ActivityEvaluator scores bare kings as zero", "[eval][activity]") {
   REQUIRE(eval.evaluate(to_classical_context(board)).mid_game() == 0);
 }
 
-TEST_CASE("ActivityEvaluator penalizes a minor piece sitting on its home "
+TEST_CASE("ActivityEvaluator penalises a minor piece sitting on its home "
           "square",
           "[eval][activity]") {
   ActivityEvaluator eval;

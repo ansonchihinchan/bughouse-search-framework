@@ -1,8 +1,8 @@
 #include "game/board.h"
 #include "game/attacks.h"
+#include "game/bitboards.h"
 #include "game/movegen.h"
 #include "game/zobrist.h"
-#include "game/bitboards.h"
 #include <bit>
 #include <cassert>
 #include <iostream>
@@ -190,7 +190,7 @@ bool Board::is_attacked(Square square, Colour colour) const {
 
   // Pawns
   Bitboard pawns = bitboards[make_piece(colour, PAWN).index()];
-  if (Bitboards::pawn_attacks(pawns, colour) & (1ULL << square)) 
+  if (pawn_attacks(pawns, colour) & (1ULL << square))
     return true;
 
   if (knight_attacks(square) & bitboards[make_piece(colour, KNIGHT).index()])

@@ -34,12 +34,13 @@ EvalScore CommunicationEvaluator::evaluate(const EvalContext &context) const {
                    urgency_weight(partner.piece_request.urgency);
 
     if (weight > 0.f) {
-      EvalScore base = bughouse.own_pocket().contains(partner.piece_request.piece)
+      EvalScore base =
+          bughouse.own_pocket().contains(partner.piece_request.piece)
 
-                            ? EvalScore(COMM_REQUEST_FULFILLED_BONUS_MID,
-                                       COMM_REQUEST_FULFILLED_BONUS_END)
-                            : EvalScore(-COMM_REQUEST_UNMET_PENALTY_MID,
-                                       -COMM_REQUEST_UNMET_PENALTY_END);
+              ? EvalScore(COMM_REQUEST_FULFILLED_BONUS_MID,
+                          COMM_REQUEST_FULFILLED_BONUS_END)
+              : EvalScore(-COMM_REQUEST_UNMET_PENALTY_MID,
+                          -COMM_REQUEST_UNMET_PENALTY_END);
 
       score += scale(base, weight);
     }
@@ -48,11 +49,11 @@ EvalScore CommunicationEvaluator::evaluate(const EvalContext &context) const {
   // Predicted material flow
   float net_prediction =
       prediction.expected_incoming - prediction.expected_outgoing;
-  score += EvalScore(
-      static_cast<int>(net_prediction * COMM_PREDICTED_MATERIAL_WEIGHT_MID /
-                       100.f),
-      static_cast<int>(net_prediction * COMM_PREDICTED_MATERIAL_WEIGHT_END /
-                       100.f));
+  score +=
+      EvalScore(static_cast<int>(net_prediction *
+                                 COMM_PREDICTED_MATERIAL_WEIGHT_MID / 100.f),
+                static_cast<int>(net_prediction *
+                                 COMM_PREDICTED_MATERIAL_WEIGHT_END / 100.f));
 
   // Strategy request
   if (partner.strat_request.strat == StrategyType::AttackNow) {

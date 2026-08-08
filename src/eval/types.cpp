@@ -56,14 +56,6 @@ void compute_pawn_info(const Board &board, Colour colour, Bitboard &passed,
   }
 }
 
-Bitboard pawn_attacks(Bitboard pawns, Colour colour) {
-  if (colour == WHITE)
-    return ((pawns << 7) & ~0x8080808080808080ULL) |
-           ((pawns << 9) & ~0x0101010101010101ULL);
-  return ((pawns >> 7) & ~0x0101010101010101ULL) |
-         ((pawns >> 9) & ~0x8080808080808080ULL);
-}
-
 Bitboard compute_attacks(const Board &board, Colour colour) {
   Bitboard occ = board.bitboard_all();
   Bitboard attacks =

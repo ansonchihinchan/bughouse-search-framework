@@ -37,7 +37,7 @@ TEST_CASE("KingSafetyEvaluator rewards a pawn shield in the king's own zone",
   REQUIRE(shielded_score == SHIELD_BONUS);
 }
 
-TEST_CASE("KingSafetyEvaluator penalizes attackers reaching into the king's "
+TEST_CASE("KingSafetyEvaluator penalises attackers reaching into the king's "
           "zone",
           "[eval][king_safety]") {
   KingSafetyEvaluator eval;

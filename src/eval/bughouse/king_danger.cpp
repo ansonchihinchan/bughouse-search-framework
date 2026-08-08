@@ -88,11 +88,10 @@ EvalScore king_drop_danger(const Board &board, Square ksq, Colour king_colour,
       compute_drop_check_squares(ksq, attacker_colour, occ);
 
   int mid = 0, end = 0;
-  for (auto [count, pt] : {std::pair{counts.pawn, PAWN},
-                          std::pair{counts.knight, KNIGHT},
-                          std::pair{counts.bishop, BISHOP},
-                          std::pair{counts.rook, ROOK},
-                          std::pair{counts.queen, QUEEN}}) {
+  for (auto [count, pt] :
+       {std::pair{counts.pawn, PAWN}, std::pair{counts.knight, KNIGHT},
+        std::pair{counts.bishop, BISHOP}, std::pair{counts.rook, ROOK},
+        std::pair{counts.queen, QUEEN}}) {
     mid += weighted_squares(count, pt, attacker_pocket, KING_DANGER_WEIGHT_MID);
     end += weighted_squares(count, pt, attacker_pocket, KING_DANGER_WEIGHT_END);
   }

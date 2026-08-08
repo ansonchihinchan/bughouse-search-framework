@@ -63,7 +63,7 @@ TEST_CASE("SEE evaluates an even pawn-for-pawn trade as zero",
   REQUIRE_FALSE(result.undefended);
 }
 
-TEST_CASE("SEE strongly penalizes capturing a pawn defended by a pawn with a "
+TEST_CASE("SEE strongly penalises capturing a pawn defended by a pawn with a "
           "queen",
           "[search][see]") {
   Board b("4k3/8/8/2p5/3p4/4Q3/8/4K3 w - - 0 1");
@@ -103,7 +103,7 @@ TEST_CASE("SEE adds a promotion bonus on top of the captured piece's value",
   REQUIRE_FALSE(result.king_exposed);
 }
 
-TEST_CASE("SEE penalizes captures that expose the mover's own king",
+TEST_CASE("SEE penalises captures that expose the mover's own king",
           "[search][see]") {
   // White rook on e3 is pinned to the king on e1 by the black rook on e7
   Board b("4k3/4r3/8/8/8/3pR3/8/4K3 w - - 0 1");

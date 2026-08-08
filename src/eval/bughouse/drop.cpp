@@ -3,7 +3,6 @@
 #include "game/attacks.h"
 #include "game/movegen.h"
 #include "game/piece_value.h"
-#include "game/bitboards.h"
 
 #include <algorithm>
 #include <bit>
@@ -14,7 +13,7 @@ namespace {
 Bitboard piece_attack_bb(PieceType pt, Colour colour, Square sq, Bitboard occ) {
   switch (pt) {
   case PAWN:
-    return Bitboards::pawn_attacks(1ULL << sq, colour);
+    return pawn_attacks(1ULL << sq, colour);
   case KNIGHT:
     return knight_attacks(sq);
   case BISHOP:
@@ -62,8 +61,8 @@ int fork_value(const Board &board, Colour attacker_colour, Bitboard attack_bb) {
   return hits >= 2 ? value : 0;
 }
 
-bool supports_promotion(const Board &board, Colour colour, Bitboard drop_attacks,
-                        Square drop_sq) {
+bool supports_promotion(const Board &board, Colour colour,
+                        Bitboard drop_attacks, Square drop_sq) {
   Bitboard pawns = board.bitboard_piece(make_piece(colour, PAWN));
   int promo_rank = (colour == WHITE) ? 6 : 1;
   Bitboard about_to_promote = pawns & (0xFFULL << (promo_rank * 8));
@@ -236,10 +235,12 @@ EvalScore DropEvaluator::evaluate(const EvalContext &context) const {
   EvalScore score = our_threats - their_threats;
 
   if (!bughouse.partner_pocket().empty()) {
-    int urgency = std::clamp(
-        static_cast<int>(context.communication.partner.king_danger), 0, 20);
-    score += EvalScore(DROP_PARTNER_ESTIMATE_WEIGHT_MID * urgency / 20,
-                       DROP_PARTNER_ESTIMATE_WEIGHT_END * urgency / 20);
+    int urgency =
+        std::clamp(static_cast<int>(context.communication.partner.king_danger),
+                   0, PARTNER_KING_DANGER_CLAMP);
+    score += EvalScore(
+        DROP_PARTNER_ESTIMATE_WEIGHT_MID * urgency / PARTNER_KING_DANGER_CLAMP,
+        DROP_PARTNER_ESTIMATE_WEIGHT_END * urgency / PARTNER_KING_DANGER_CLAMP);
   }
 
   return score;

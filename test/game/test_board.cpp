@@ -201,7 +201,7 @@ TEST_CASE("is_attacked reports squares covered by a rook on an open file",
   REQUIRE_FALSE(b.is_attacked(to_square(3, 0), BLACK)); // d1 is safe
 }
 
-TEST_CASE("is_checkmate recognizes Fool's Mate", "[board][mate]") {
+TEST_CASE("is_checkmate recognises Fool's Mate", "[board][mate]") {
   // Verified against movegen: 1. f3 e5 2. g4 Qh4#
   Board b("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 2 3");
 
@@ -210,7 +210,7 @@ TEST_CASE("is_checkmate recognizes Fool's Mate", "[board][mate]") {
   REQUIRE_FALSE(b.is_stalemate());
 }
 
-TEST_CASE("is_stalemate recognizes a classic stalemate position",
+TEST_CASE("is_stalemate recognises a classic stalemate position",
           "[board][mate]") {
   Board b("k7/8/1Q6/8/8/8/8/7K b - - 0 1");
 
