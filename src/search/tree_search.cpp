@@ -112,15 +112,6 @@ void TreeSearch::end_search() {
     age_history();
 }
 
-// TODO
-// Cheap check if any player currently holds a queen or rook in their pocket
-bool TreeSearch::is_volatile(const BughousePosition &position) {
-  for (const Pocket &pocket : position.pockets)
-    if (pocket.contains(QUEEN) || pocket.contains(ROOK))
-      return true;
-  return false;
-}
-
 void TreeSearch::update_quiet_heuristics(Move move, int depth, int ply,
                                          Piece moved_piece, bool in_check) {
   killer_.update(ply, move);
@@ -135,21 +126,17 @@ void TreeSearch::update_quiet_heuristics(Move move, int depth, int ply,
 }
 
 int TreeSearch::lmr_reduction(int depth, int move_index,
-                              bool is_volatile) const {
+                              float volatility) const {
   if (!params_.lmr_enabled || depth < params_.lmr_min_depth ||
       move_index < params_.lmr_full_depth_moves)
     return 0;
 
-  double r = 0.5 + std::log(static_cast<double>(depth)) *
-                       std::log(static_cast<double>(move_index)) / 2.25;
-  int reduction = static_cast<int>(r);
-  int min_reduction = 1;
-  if (is_volatile) {
-    reduction = std::max(0, reduction - 1);
-    min_reduction = 0;
-  }
+  double base = 0.5 + std::log(static_cast<double>(depth)) *
+                          std::log(static_cast<double>(move_index)) / 2.25;
 
-  return std::clamp(reduction, min_reduction, depth - 1);
+  double reduction = base - params_.lmr_volatility_scale * volatility;
+
+  return std::clamp(static_cast<int>(reduction), 0, depth - 1);
 }
 
 bool TreeSearch::is_reducible(const BughousePosition &position,
@@ -313,24 +300,29 @@ int TreeSearch::alpha_beta(BughousePosition &position,
   const Board &board = position.boards[board_of(context.root_player)];
   Colour side = colour_of_player(context.root_player);
   bool in_check = board.is_in_check();
-  bool is_volatile = this->is_volatile(position);
+
+  int null_move_reduction = params_.null_move_reduction;
+  float volatility = evaluator_.volatility(position, context.root_player);
+  null_move_reduction =
+      std::max(1, params_.null_move_reduction -
+                      static_cast<int>(std::lround(
+                          volatility * (params_.null_move_reduction - 1))));
 
   // Null move pruning
   // TODO: verification search, adaptive reduction, zugzwang detection
-  if (null_move_enabled() && !is_volatile &&
-      depth >= params_.null_move_min_depth && !in_check &&
-      board.has_non_pawn(side) && beta < INF_SCORE &&
-      !(tt_entry && tt_entry->depth >= depth - params_.null_move_reduction &&
+  if (null_move_enabled() && depth >= params_.null_move_min_depth &&
+      !in_check && board.has_non_pawn(side) && beta < INF_SCORE &&
+      !(tt_entry && tt_entry->depth >= depth - null_move_reduction &&
         tt_entry->bound == TTBound::UPPER &&
         tt_to_score(tt_entry->score, ply) < beta)) {
     BoardUndo null_undo = make_null_move(position, context.root_player);
 
-    int score = -alpha_beta(
-        position,
-        make_context(context.remaining, next_player(context.root_player),
-                     context.comm_context),
-        DetailedMove{}, depth - 1 - params_.null_move_reduction, -beta,
-        -beta + 1, ply + 1, stop_token, true);
+    int score = -alpha_beta(position,
+                            make_context(context.remaining,
+                                         next_player(context.root_player),
+                                         context.comm_context),
+                            DetailedMove{}, depth - 1 - null_move_reduction,
+                            -beta, -beta + 1, ply + 1, stop_token, true);
     undo_null_move(position, context.root_player, null_undo);
 
     if (!stop_token.stop_requested() && !deadline_reached() && score >= beta) {
@@ -366,7 +358,6 @@ int TreeSearch::alpha_beta(BughousePosition &position,
   int futility_eval = 0;
   int margin = 0;
   if (futility) {
-    float volatility = evaluator_.volatility(position, context.root_player);
     margin = futility_margin(depth, volatility);
     futility_eval = evaluator_.evaluate(
         position, context.root_player, context.remaining, context.comm_context);
@@ -433,7 +424,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
     } else {
       int reduction = 0;
       if (is_reducible(position, context, move, capture, in_check, check))
-        reduction = lmr_reduction(depth, move_index, is_volatile);
+        reduction = lmr_reduction(depth, move_index, volatility);
       score = search_tail_move(position, next, child_prev, depth, alpha, beta,
                                ply, reduction, stop_token);
     }
@@ -572,7 +563,9 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
     } else {
       int reduction = 0;
       if (is_reducible(working, context, move, capture, in_check, check))
-        reduction = lmr_reduction(depth, move_index, is_volatile(working));
+        reduction =
+            lmr_reduction(depth, move_index,
+                          evaluator_.volatility(working, context.root_player));
       score = search_tail_move(working, next, child_prev, depth, alpha, beta, 0,
                                reduction, stop_token);
     }
