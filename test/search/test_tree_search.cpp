@@ -19,7 +19,8 @@ namespace {
 class MaterialEvaluator : public Evaluator {
 public:
   int evaluate(const BughousePosition &position, PlayerId root_player,
-               const std::array<int64_t, PLAYER_NO> &remaining) const override {
+               const std::array<int64_t, PLAYER_NO> &remaining,
+               const CommunicationContext &comm_context) const override {
     int score = 0;
     for (int b = 0; b < BOARD_NO; b++) {
       const Board &board = position.boards[b];
@@ -76,7 +77,8 @@ TEST_CASE("AlphaBetaSearch finds undefended queen capture",
           "[search][tree_search]") {
   BughousePosition pos = free_queen_position();
   BughouseClock clock = make_clock();
-  SearchContext context = make_context(clock, to_player(0));
+  CommunicationContext comm_context = CommunicationContext{};
+  SearchContext context = make_context(clock, to_player(0), comm_context);
 
   MaterialEvaluator eval;
   TranspositionTable tt(64);
@@ -97,7 +99,8 @@ TEST_CASE("AlphaBetaSearch finds undefended queen capture",
 TEST_CASE("PVS finds undefended queen capture", "[search][tree_search]") {
   BughousePosition pos = free_queen_position();
   BughouseClock clock = make_clock();
-  SearchContext context = make_context(clock, to_player(0));
+  CommunicationContext comm_context = CommunicationContext{};
+  SearchContext context = make_context(clock, to_player(0), comm_context);
 
   MaterialEvaluator eval;
   TranspositionTable tt(64);
@@ -119,7 +122,8 @@ TEST_CASE("NullMoveSearch finds same undefended queen capture",
           "[search][tree_search]") {
   BughousePosition pos = free_queen_position();
   BughouseClock clock = make_clock();
-  SearchContext context = make_context(clock, to_player(0));
+  CommunicationContext comm_context = CommunicationContext{};
+  SearchContext context = make_context(clock, to_player(0), comm_context);
 
   MaterialEvaluator eval;
   TranspositionTable tt(64);
@@ -140,7 +144,8 @@ TEST_CASE("NullMoveSearch finds same undefended queen capture",
 TEST_CASE("search() returns a legal move from the standard start position",
           "[search][tree_search]") {
   BughouseState game;
-  SearchContext context = make_context(game.clock, to_player(0));
+  CommunicationContext comm_context = CommunicationContext{};
+  SearchContext context = make_context(game.clock, to_player(0), comm_context);
 
   MaterialEvaluator eval;
   TranspositionTable tt(64);
@@ -161,7 +166,8 @@ TEST_CASE("search() returns a legal move from the standard start position",
 TEST_CASE("search() honours max_depth and does not search beyond it",
           "[search][tree_search]") {
   BughouseState game;
-  SearchContext context = make_context(game.clock, to_player(0));
+  CommunicationContext comm_context = CommunicationContext{};
+  SearchContext context = make_context(game.clock, to_player(0), comm_context);
 
   MaterialEvaluator eval;
   TranspositionTable tt(64);
@@ -182,7 +188,8 @@ TEST_CASE("search() stops once max_nodes is reached and does not keep "
           "iterating to unbounded depth",
           "[search][tree_search]") {
   BughouseState game;
-  SearchContext context = make_context(game.clock, to_player(0));
+  CommunicationContext comm_context = CommunicationContext{};
+  SearchContext context = make_context(game.clock, to_player(0), comm_context);
 
   MaterialEvaluator eval;
   TranspositionTable tt(64);
@@ -204,7 +211,8 @@ TEST_CASE("search() stops once max_nodes is reached and does not keep "
 TEST_CASE("search() stops within a small requested move_time budget",
           "[search][tree_search]") {
   BughouseState game;
-  SearchContext context = make_context(game.clock, to_player(0));
+  CommunicationContext comm_context = CommunicationContext{};
+  SearchContext context = make_context(game.clock, to_player(0), comm_context);
 
   MaterialEvaluator eval;
   TranspositionTable tt(64);
@@ -229,7 +237,8 @@ TEST_CASE("search() halts immediately when the stop_token is already "
           "cancelled",
           "[search][tree_search]") {
   BughouseState game;
-  SearchContext context = make_context(game.clock, to_player(0));
+  CommunicationContext comm_context = CommunicationContext{};
+  SearchContext context = make_context(game.clock, to_player(0), comm_context);
 
   MaterialEvaluator eval;
   TranspositionTable tt(64);
@@ -255,7 +264,8 @@ TEST_CASE("search() reports no move and a zero score for an already "
   BughousePosition pos;
   pos.boards[0].load_fen("7k/6Q1/6K1/8/8/8/8/8 b - - 0 1");
   BughouseClock clock = make_clock();
-  SearchContext context = make_context(clock, to_player(1));
+  CommunicationContext comm_context = CommunicationContext{};
+  SearchContext context = make_context(clock, to_player(1), comm_context);
 
   MaterialEvaluator eval;
   TranspositionTable tt(64);

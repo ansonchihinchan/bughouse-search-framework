@@ -1,5 +1,6 @@
 #pragma once
 
+#include "communication/context.h"
 #include "game/bughouse.h"
 
 // Abstract Evaluator interface
@@ -10,9 +11,9 @@ public:
 
   // Static score for the joint position and context(player_id, clock) from
   // player_id's team's perspective.
-  virtual int
-  evaluate(const BughousePosition &position, PlayerId root_player,
-           const std::array<int64_t, PLAYER_NO> &remaining) const = 0;
+  virtual int evaluate(const BughousePosition &position, PlayerId root_player,
+                       const std::array<int64_t, PLAYER_NO> &remaining,
+                       const CommunicationContext &comm_context) const = 0;
 
   // Optional hook for leaf-extension searches
   // A noisy position is one where something significant is happening.

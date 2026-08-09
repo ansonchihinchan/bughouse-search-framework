@@ -10,14 +10,15 @@ struct Fixture {
   std::array<Pocket, PLAYER_NO> pockets{};
   std::array<int64_t, PLAYER_NO> remaining{};
   PartnerContext partner{};
+  Message message{};
   PredictionSummary prediction{};
 
   explicit Fixture(const std::string &fen) { board.load_fen(fen); }
 
   EvalContext context(PlayerId root_player) const {
-    return EvalContext{to_classical_context(board),
+    return EvalContext{make_classical_context(board),
                        BughouseContext{pockets, root_player, remaining},
-                       CommunicationContext{partner, prediction}};
+                       CommunicationContext{partner, message, prediction}};
   }
 };
 

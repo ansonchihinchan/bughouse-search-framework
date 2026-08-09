@@ -12,25 +12,15 @@ float confidence_dampening(float volatility) {
 }
 
 EvalScore anticipated_piece_score(const PredictionSummary &prediction) {
-  struct Entry {
-    PieceType pt;
-    float probability;
-  };
-  const Entry entries[] = {
-      {KNIGHT, prediction.probability_receive_knight},
-      {BISHOP, prediction.probability_receive_bishop},
-      {ROOK, prediction.probability_receive_rook},
-      {QUEEN, prediction.probability_receive_queen},
-  };
-
   int mid = 0, end = 0;
-  for (const Entry &entry : entries) {
-    if (entry.probability <= 0.f)
+  for (int i = 0; i < PIECE_TYPE_NO; i++) {
+    float probability = prediction.receive_probability[i];
+    if (probability <= 0.f)
       continue;
-    int value = PieceValue::PIECE_VALUE[entry.pt];
-    mid += static_cast<int>(value * entry.probability *
+    int value = PieceValue::PIECE_VALUE[i];
+    mid += static_cast<int>(value * probability *
                             PREDICTION_INCOMING_PIECE_WEIGHT_MID / 100.f);
-    end += static_cast<int>(value * entry.probability *
+    end += static_cast<int>(value * probability *
                             PREDICTION_INCOMING_PIECE_WEIGHT_END / 100.f);
   }
   return EvalScore(mid, end);
@@ -46,7 +36,7 @@ EvalScore PredictionEvaluator::evaluate(const EvalContext &context) const {
 
   // Predicted material flow
   float net_material =
-      prediction.expected_incoming - prediction.expected_outgoing;
+      prediction.expected_incoming_value - prediction.expected_outgoing_value;
   score += EvalScore(static_cast<int>(net_material *
                                       PREDICTION_MATERIAL_WEIGHT_MID / 100.f),
                      static_cast<int>(net_material *

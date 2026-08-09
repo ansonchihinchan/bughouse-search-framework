@@ -18,20 +18,21 @@ float urgency_weight(Urgency urgency) {
 
 EvalScore PartnerEvaluator::evaluate(const EvalContext &context) const {
   const PartnerContext &partner = context.communication.partner;
+  const Message &message = context.communication.message;
   const PredictionSummary &prediction = context.communication.prediction;
   const BughouseContext &bughouse = context.bughouse;
 
   EvalScore score(0);
 
   // Piece request
-  if (partner.piece_request.piece != NO_PIECE_TYPE) {
-    float weight = partner.piece_request.confidence *
-                   eta_weight(partner.piece_request.eta_plies) *
-                   urgency_weight(partner.piece_request.urgency);
+  if (message.piece_request.piece != NO_PIECE_TYPE) {
+    float weight = message.piece_request.confidence *
+                   eta_weight(message.piece_request.eta_plies) *
+                   urgency_weight(message.piece_request.urgency);
 
     if (weight > 0.f) {
       EvalScore base =
-          bughouse.own_pocket().contains(partner.piece_request.piece)
+          bughouse.own_pocket().contains(message.piece_request.piece)
 
               ? EvalScore(PARTNER_REQUEST_FULFILLED_BONUS_MID,
                           PARTNER_REQUEST_FULFILLED_BONUS_END)
@@ -43,30 +44,30 @@ EvalScore PartnerEvaluator::evaluate(const EvalContext &context) const {
   }
 
   // Strategy request
-  if (partner.strat_request.strat == StrategyType::AttackNow) {
-    float weight = partner.strat_request.confidence *
-                   urgency_weight(partner.strat_request.urgency);
+  if (message.strat_request.strat == StrategyType::AttackNow) {
+    float weight = message.strat_request.confidence *
+                   urgency_weight(message.strat_request.urgency);
     score += EvalScore(PARTNER_ATTACK_READINESS_BONUS_MID,
                        PARTNER_ATTACK_READINESS_BONUS_END)
-                 .scale(partner.strat_request.confidence);
-  } else if (partner.strat_request.strat == StrategyType::Defend) {
-    float weight = partner.strat_request.confidence *
-                   urgency_weight(partner.strat_request.urgency);
+                 .scale(message.strat_request.confidence);
+  } else if (message.strat_request.strat == StrategyType::Defend) {
+    float weight = message.strat_request.confidence *
+                   urgency_weight(message.strat_request.urgency);
     score += EvalScore(PARTNER_DEFENCE_READINESS_BONUS_MID,
                        PARTNER_DEFENCE_READINESS_BONUS_END)
                  .scale(weight);
   }
 
-  if (partner.strat_request.strat == StrategyType::TradeEverything &&
+  if (message.strat_request.strat == StrategyType::TradeEverything &&
       partner.material_balance > 0) {
     score += EvalScore(PARTNER_STRATEGY_ALIGNMENT_BONUS_MID,
                        PARTNER_STRATEGY_ALIGNMENT_BONUS_END)
-                 .scale(partner.strat_request.confidence);
-  } else if (partner.strat_request.strat == StrategyType::AvoidTrades &&
+                 .scale(message.strat_request.confidence);
+  } else if (message.strat_request.strat == StrategyType::AvoidTrades &&
              partner.material_balance < 0) {
     score += EvalScore(PARTNER_STRATEGY_ALIGNMENT_BONUS_MID,
                        PARTNER_STRATEGY_ALIGNMENT_BONUS_END)
-                 .scale(partner.strat_request.confidence);
+                 .scale(message.strat_request.confidence);
   }
 
   return score;

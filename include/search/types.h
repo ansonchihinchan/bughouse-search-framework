@@ -1,5 +1,7 @@
 #pragma once
 
+#include "communication/context.h"
+#include "game/bughouse.h"
 #include "game/clock.h"
 #include "game/types.h"
 #include "search/transposition_table.h"
@@ -50,20 +52,23 @@ struct SearchStats {
 struct SearchContext {
   const std::array<int64_t, PLAYER_NO> remaining;
   PlayerId root_player;
+  const CommunicationContext &comm_context;
   const std::vector<RepetitionNode> *history = nullptr;
 };
 
-inline SearchContext make_context(const BughouseClock &clock, PlayerId player) {
+inline SearchContext make_context(const BughouseClock &clock, PlayerId player,
+                                  const CommunicationContext &comm_context) {
   std::array<int64_t, PLAYER_NO> remaining{};
   for (int i = 0; i < PLAYER_NO; i++)
     remaining[i] = clock.remaining(to_player(i));
-  return SearchContext{remaining, player};
+  return SearchContext{remaining, player, comm_context};
 }
 
 constexpr SearchContext
 make_context(const std::array<int64_t, PLAYER_NO> &remaining, PlayerId player,
+             const CommunicationContext &comm_context,
              const std::vector<RepetitionNode> *history = nullptr) {
-  return SearchContext{remaining, player, history};
+  return SearchContext{remaining, player, comm_context, history};
 }
 
 struct SearchResult {

@@ -166,7 +166,8 @@ bool TreeSearch::is_reducible(const BughousePosition &position,
 }
 
 int TreeSearch::futility_margin(int depth, float volatility) const {
-  return params_.futility_base_margin + params_.futility_per_depth_margin * depth +
+  return params_.futility_base_margin +
+         params_.futility_per_depth_margin * depth +
          static_cast<int>(params_.futility_volatility_scale * volatility);
 }
 
@@ -326,7 +327,8 @@ int TreeSearch::alpha_beta(BughousePosition &position,
 
     int score = -alpha_beta(
         position,
-        make_context(context.remaining, next_player(context.root_player)),
+        make_context(context.remaining, next_player(context.root_player),
+                     context.comm_context),
         DetailedMove{}, depth - 1 - params_.null_move_reduction, -beta,
         -beta + 1, ply + 1, stop_token, true);
     undo_null_move(position, context.root_player, null_undo);
@@ -366,8 +368,8 @@ int TreeSearch::alpha_beta(BughousePosition &position,
   if (futility) {
     float volatility = evaluator_.volatility(position, context.root_player);
     margin = futility_margin(depth, volatility);
-    futility_eval =
-        evaluator_.evaluate(position, context.root_player, context.remaining);
+    futility_eval = evaluator_.evaluate(
+        position, context.root_player, context.remaining, context.comm_context);
   }
 
   int best = -INF_SCORE;
@@ -418,7 +420,8 @@ int TreeSearch::alpha_beta(BughousePosition &position,
 
     bool check = position.boards[board_of(context.root_player)].is_in_check();
     SearchContext next =
-        make_context(context.remaining, next_player(context.root_player));
+        make_context(context.remaining, next_player(context.root_player),
+                     context.comm_context);
 
     int score;
 
@@ -513,9 +516,10 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
 
   // checkmate, stalemate
   if (moves.empty()) {
-    result.score = in_check ? -INF_SCORE
-                            : evaluator_.evaluate(working, context.root_player,
-                                                  context.remaining);
+    result.score =
+        in_check ? -INF_SCORE
+                 : evaluator_.evaluate(working, context.root_player,
+                                       context.remaining, context.comm_context);
     result.depth = depth;
     result.bound = TTBound::EXACT;
     return result;
@@ -555,7 +559,8 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
 
     bool check = working.boards[board_of(context.root_player)].is_in_check();
     SearchContext next =
-        make_context(context.remaining, next_player(context.root_player));
+        make_context(context.remaining, next_player(context.root_player),
+                     context.comm_context);
 
     int score;
 
@@ -602,9 +607,10 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
     move_index++;
   }
 
-  result.score = searched ? best
-                          : evaluator_.evaluate(working, context.root_player,
-                                                context.remaining);
+  result.score =
+      searched ? best
+               : evaluator_.evaluate(working, context.root_player,
+                                     context.remaining, context.comm_context);
   result.bound = result.score <= old_alpha ? TTBound::UPPER
                  : result.score >= beta    ? TTBound::LOWER
                                            : TTBound::EXACT;

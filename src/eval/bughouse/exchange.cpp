@@ -55,6 +55,7 @@ EvalScore ExchangeEvaluator::evaluate(const EvalContext &context) const {
   const Board &board = context.classical.board;
   const AttackInfo &attack_info = context.classical.attack_info;
   const PartnerContext &partner = context.communication.partner;
+  const Message &message = context.communication.message;
 
   Colour us = colour_of_player(context.bughouse.root_player);
   Colour them = flip(us);
@@ -73,20 +74,20 @@ EvalScore ExchangeEvaluator::evaluate(const EvalContext &context) const {
   float danger_ratio =
       static_cast<float>(partner_danger_scale) / PARTNER_KING_DANGER_CLAMP;
 
-  float request_weight = partner.piece_request.confidence *
-                         urgency_weight(partner.piece_request.urgency) *
-                         eta_weight(partner.piece_request.eta_plies);
+  float request_weight = message.piece_request.confidence *
+                         urgency_weight(message.piece_request.urgency) *
+                         eta_weight(message.piece_request.eta_plies);
 
   float danger_signal_weight =
-      partner.danger ? partner.strat_request.confidence *
-                           urgency_weight(partner.strat_request.urgency)
+      partner.danger ? message.strat_request.confidence *
+                           urgency_weight(message.strat_request.urgency)
                      : 0.f;
 
   auto help_multiplier = [&](PieceType pt) -> std::pair<float, float> {
     float requested_mid =
-        (partner.piece_request.piece == pt) ? EXCHANGE_REQUEST_BONUS_MID : 0.f;
+        (message.piece_request.piece == pt) ? EXCHANGE_REQUEST_BONUS_MID : 0.f;
     float requested_end =
-        (partner.piece_request.piece == pt) ? EXCHANGE_REQUEST_BONUS_END : 0.f;
+        (message.piece_request.piece == pt) ? EXCHANGE_REQUEST_BONUS_END : 0.f;
     float help_bonus = partner.danger ? EXCHANGE_PARTNER_HELP_BONUS : 0.f;
 
     return {EXCHANGE_BASE_MULTIPLIER + requested_mid + help_bonus,

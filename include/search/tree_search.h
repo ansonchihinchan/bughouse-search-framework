@@ -60,8 +60,8 @@ protected:
     (void)alpha;
     (void)beta;
     (void)stop_token;
-    return evaluator_.evaluate(position, context.root_player,
-                               context.remaining);
+    return evaluator_.evaluate(position, context.root_player, context.remaining,
+                               context.comm_context);
   }
 
   virtual void order_moves(const BughousePosition &position,

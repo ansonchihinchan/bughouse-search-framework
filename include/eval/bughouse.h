@@ -5,8 +5,11 @@
 
 class BughouseEvaluator : public Evaluator {
 public:
+  BughouseEvaluator();
+
   int evaluate(const BughousePosition &position, PlayerId root_player,
-               const std::array<int64_t, PLAYER_NO> &remaining) const override;
+               const std::array<int64_t, PLAYER_NO> &remaining,
+               const CommunicationContext &comm_context) const override;
 
   bool is_noisy(const BughousePosition &position,
                 PlayerId root_player) const override;

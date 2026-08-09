@@ -41,22 +41,22 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
   stats_.nodes++;
 
   if (stop_token.stop_requested() || deadline_reached())
-    return evaluator_.evaluate(position, context.root_player,
-                               context.remaining);
+    return evaluator_.evaluate(position, context.root_player, context.remaining,
+                               context.comm_context);
 
   const Board &board = position.boards[board_of(context.root_player)];
   bool in_check = board.is_in_check();
   Colour mover_colour = colour_of_player(context.root_player);
 
   if (in_check && qply >= params_.quiescence_max_ply)
-    return evaluator_.evaluate(position, context.root_player,
-                               context.remaining);
+    return evaluator_.evaluate(position, context.root_player, context.remaining,
+                               context.comm_context);
 
   int stand_pat = 0;
 
   if (!in_check) {
-    stand_pat =
-        evaluator_.evaluate(position, context.root_player, context.remaining);
+    stand_pat = evaluator_.evaluate(position, context.root_player,
+                                    context.remaining, context.comm_context);
 
     if (stand_pat >= beta)
       return stand_pat;
@@ -106,10 +106,11 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
   for (Move move : moves) {
     BughouseUndo undo = apply_move(position, context.root_player, move);
 
-    int score = -quiescence(
-        position,
-        make_context(context.remaining, next_player(context.root_player)),
-        -beta, -alpha, qply + 1, stop_token);
+    int score = -quiescence(position,
+                            make_context(context.remaining,
+                                         next_player(context.root_player),
+                                         context.comm_context),
+                            -beta, -alpha, qply + 1, stop_token);
     undo_move(position, context.root_player, move, undo);
 
     if (score >= beta)

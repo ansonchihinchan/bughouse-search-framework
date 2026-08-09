@@ -10,7 +10,7 @@ namespace {
 EvalContext make_context(const BughousePosition &position,
                          PlayerId root_player = to_player(0)) {
   return EvalContext{
-      to_classical_context(position.boards[board_of(root_player)]),
+      make_classical_context(position.boards[board_of(root_player)]),
       BughouseContext{position.pockets, root_player,
                       std::array<int64_t, PLAYER_NO>{}},
       CommunicationContext{}};

@@ -13,7 +13,7 @@ EvalContext make_context(const PredictionSummary &prediction) {
   CommunicationContext comm;
   comm.prediction = prediction;
 
-  return EvalContext{to_classical_context(position.boards[0]),
+  return EvalContext{make_classical_context(position.boards[0]),
                      BughouseContext{position.pockets, to_player(0),
                                      std::array<int64_t, PLAYER_NO>{}},
                      comm};
@@ -51,8 +51,8 @@ TEST_CASE("PredictionEvaluator weights predicted net material flow more "
           "[eval][prediction]") {
   PredictionSummary prediction;
   prediction.defence_confidence = 1.f;
-  prediction.expected_incoming = 200.f;
-  prediction.expected_outgoing = 0.f;
+  prediction.expected_incoming_value = 200.f;
+  prediction.expected_outgoing_value = 0.f;
 
   PredictionEvaluator eval;
   EvalScore score = eval.evaluate(make_context(prediction));
@@ -67,11 +67,11 @@ TEST_CASE("PredictionEvaluator weights anticipated pieces by both "
           "[eval][prediction]") {
   PredictionSummary queen_incoming;
   queen_incoming.defence_confidence = 1.f;
-  queen_incoming.probability_receive_queen = 1.f;
+  queen_incoming.receive_probability[QUEEN] = 1.f;
 
   PredictionSummary knight_incoming;
   knight_incoming.defence_confidence = 1.f;
-  knight_incoming.probability_receive_knight = 1.f;
+  knight_incoming.receive_probability[KNIGHT] = 1.f;
 
   PredictionEvaluator eval;
   EvalScore queen_score = eval.evaluate(make_context(queen_incoming));

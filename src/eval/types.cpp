@@ -101,7 +101,7 @@ Bitboard king_zone(const Board &board, Colour colour) {
 
 } // namespace
 
-ClassicalContext to_classical_context(const Board &board) {
+ClassicalContext make_classical_context(const Board &board) {
   ClassicalContext context{board, {}, {}};
   init_attack_tables();
 
@@ -121,4 +121,23 @@ ClassicalContext to_classical_context(const Board &board) {
 
   context.phase = std::min(EvalScore::MAX_PHASE, phase);
   return context;
+}
+
+EvalContext make_eval_context(const BughousePosition &position,
+                              PlayerId root_player,
+                              const std::array<int64_t, PLAYER_NO> &remaining,
+                              const CommunicationContext &comm_context) {
+  return EvalContext{
+      make_classical_context(position.boards[board_of(root_player)]),
+      make_bughouse_context(position, root_player, remaining), comm_context};
+};
+
+EvalContext make_eval_context(const BughousePosition &position,
+                              PlayerId root_player,
+                              const std::array<int64_t, PLAYER_NO> &remaining,
+                              const Channel &channel) {
+  return EvalContext{
+      make_classical_context(position.boards[board_of(root_player)]),
+      make_bughouse_context(position, root_player, remaining),
+      make_communication_context(position, root_player, channel)};
 }

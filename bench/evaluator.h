@@ -8,8 +8,10 @@
 class BenchEvaluator : public Evaluator {
 public:
   int evaluate(const BughousePosition &position, PlayerId root_player,
-               const std::array<int64_t, PLAYER_NO> &remaining) const override {
-    static constexpr const std::array<int, PIECE_TYPE_NO> &VALUE = PieceValue::PIECE_VALUE;
+               const std::array<int64_t, PLAYER_NO> &remaining,
+               const CommunicationContext &comm_context) const override {
+    static constexpr const std::array<int, PIECE_TYPE_NO> &VALUE =
+        PieceValue::PIECE_VALUE;
 
     int my_team = to_int(root_player) % 2;
     int score = 0;

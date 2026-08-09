@@ -13,5 +13,6 @@ TEST_CASE("TempoEvaluator rewards the root's own board", "[eval][tempo]") {
   board.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
   TempoEvaluator eval;
-  REQUIRE(eval.evaluate(to_classical_context(board)).mid_game() == TEMPO_BONUS);
+  REQUIRE(eval.evaluate(make_classical_context(board)).mid_game() ==
+          TEMPO_BONUS);
 }

@@ -45,7 +45,7 @@ TEST_CASE("ExchangeEvaluator penalises hanging material more heavily when "
   Fixture fx("3rk3/8/8/3N4/8/8/8/4K3 w - - 0 1");
   fx.partner.king_danger = 20.f;
   fx.partner.danger = true;
-  fx.partner.strat_request = {StrategyType::Defend, 1.0f, Urgency::Critical};
+  fx.message.strat_request = {StrategyType::Defend, 1.0f, Urgency::Critical};
 
   ExchangeEvaluator eval;
   EvalScore score = eval.evaluate(fx.context(to_player(0)));
@@ -58,7 +58,7 @@ TEST_CASE("ExchangeEvaluator boosts capture value when partner has "
           "explicitly requested the matching piece type",
           "[eval][bughouse][exchange]") {
   Fixture fx("4k3/8/8/3n4/8/8/8/3RK3 w - - 0 1");
-  fx.partner.piece_request = {KNIGHT, 1.0f, Urgency::Critical, 0};
+  fx.message.piece_request = {KNIGHT, 1.0f, Urgency::Critical, 0};
 
   ExchangeEvaluator eval;
   EvalScore score = eval.evaluate(fx.context(to_player(0)));
