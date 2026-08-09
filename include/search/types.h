@@ -98,6 +98,7 @@ struct SearchParams {
   bool lmr_enabled = true;
   int lmr_min_depth = 3;
   int lmr_full_depth_moves = 3;
+  float lmr_volatility_scale = 2.0f;
 
   bool null_move_enabled = false;
   int null_move_reduction = 3;

@@ -1,6 +1,9 @@
+#pragma once
+
 #include "eval/classical.h"
 #include "eval/evaluator.h"
 #include "eval/feature.h"
+#include <memory>
 #include <vector>
 
 class BughouseEvaluator : public Evaluator {

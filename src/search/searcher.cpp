@@ -21,6 +21,10 @@ SearchResult Searcher::run(const BughousePosition &position,
     int alpha = -INF_SCORE, beta = INF_SCORE;
     int window = params_.aspiration_initial_window;
     if (depth >= params_.aspiration_start_depth) {
+      float volatility =
+          search_.evaluator().volatility(position, context.root_player);
+      window = static_cast<int>(
+          window * (1.0f + params_.aspiration_volatility_scale * volatility));
       alpha = std::max(-INF_SCORE, prev_score - window);
       beta = std::min(INF_SCORE, prev_score + window);
     }

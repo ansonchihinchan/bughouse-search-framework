@@ -9,7 +9,7 @@
 // Abstract Search interface
 class Search {
 public:
-  // Constructor and Destructor
+  const Evaluator &evaluator() const { return evaluator_; }
   explicit Search(const Evaluator &evaluator) : evaluator_(evaluator) {}
   virtual ~Search() = default;
 

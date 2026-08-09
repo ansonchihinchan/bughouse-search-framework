@@ -125,3 +125,9 @@ constexpr int INITIATIVE_DROP_CHECK_READY_MID = 14;
 constexpr int INITIATIVE_DROP_CHECK_READY_END = 22;
 constexpr int INITIATIVE_TEMPO_BONUS_MID = 15;
 constexpr int INITIATIVE_TEMPO_BONUS_END = 10;
+
+// eval/bughouse/volatility
+constexpr float VOLATILITY_POCKET_WEIGHT[PIECE_TYPE_NO] = { 0.f, 0.05f, 0.10f, 0.10f, 0.15f, 0.25f, 0.f};
+constexpr float VOLATILITY_EXPOSURE_SCALE = 0.5f;
+constexpr float VOLATILITY_OWN_BOARD_WEIGHT = 1.0f;
+constexpr float VOLATILITY_PARTNER_BOARD_WEIGHT = 0.5f;

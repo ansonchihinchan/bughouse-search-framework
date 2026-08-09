@@ -6,8 +6,83 @@
 #include "eval/bughouse/partner.h"
 #include "eval/bughouse/pocket.h"
 #include "eval/bughouse/prediction.h"
+#include "eval/const.h"
 #include "game/attacks.h"
 #include "game/movegen.h"
+#include <algorithm>
+#include <bit>
+
+namespace {
+bool has_check_drop(const Board &board, const Pocket &pocket, Colour mover) {
+  init_attack_tables();
+
+  Colour enemy = flip(mover);
+  Bitboard enemy_king = board.bitboard_piece(make_piece(enemy, KING));
+  if (!enemy_king)
+    return false;
+
+  Square ksq = static_cast<Square>(std::countr_zero(enemy_king));
+  Bitboard occ = board.bitboard_all();
+  Bitboard empty = ~occ;
+
+  if (pocket.contains(KNIGHT) && (knight_attacks(ksq) & empty))
+    return true;
+
+  if ((pocket.contains(BISHOP) || pocket.contains(QUEEN)) &&
+      (bishop_attacks(ksq, occ) & empty))
+    return true;
+
+  if ((pocket.contains(ROOK) || pocket.contains(QUEEN)) &&
+      (rook_attacks(ksq, occ) & empty))
+    return true;
+
+  if (pocket.contains(PAWN)) {
+    int back_rank_offset = (mover == WHITE) ? -8 : 8;
+    for (int file_offset : {-1, 1}) {
+      Square candidate = ksq + back_rank_offset + file_offset;
+      if (candidate < 0 || candidate >= SQUARE_NO)
+        continue;
+      if (std::abs(file_of(candidate) - file_of(ksq)) != 1)
+        continue;
+      if (rank_of(candidate) == 0 || rank_of(candidate) == 7)
+        continue;
+      if (empty & (1ULL << candidate))
+        return true;
+    }
+  }
+
+  return false;
+}
+
+float pocket_weight_sum(const Pocket &pocket) {
+  float total = 0.f;
+  for (int pt = PAWN; pt <= QUEEN; pt++)
+    total +=
+        VOLATILITY_POCKET_WEIGHT[pt] * pocket.count(static_cast<PieceType>(pt));
+  return total;
+}
+
+float king_exposure(const Board &board, Colour side) {
+  Bitboard king_bb = board.bitboard_piece(make_piece(side, KING));
+  if (!king_bb)
+    return 0.f;
+
+  Square ksq = static_cast<Square>(std::countr_zero(king_bb));
+  Bitboard zone = king_attacks(ksq) | king_bb;
+  int zone_size = std::popcount(zone);
+  if (zone_size == 0)
+    return 0.f;
+
+  int shielded =
+      std::popcount(board.bitboard_piece(make_piece(side, PAWN)) & zone);
+  return 1.f - static_cast<float>(shielded) / zone_size;
+}
+
+float board_exposure(const Board &board) {
+  return std::max(king_exposure(board, WHITE), king_exposure(board, BLACK));
+}
+
+} // namespace
 
 BughouseEvaluator::BughouseEvaluator() {
   features_.push_back(std::make_unique<DropEvaluator>());
@@ -29,17 +104,48 @@ int BughouseEvaluator::evaluate(
   for (const auto &feature : features_)
     score += feature->evaluate(eval_context);
 
-  return score.final(eval_context.classical.phase) +
-         classical_.evaluate(position.boards[board_of(root_player)],
-                             colour_of_player(root_player));
+  for (int b = 0; b < BOARD_NO; b++)
+    score +=
+        classical_.evaluate(position.boards[b], team_colour(root_player, b));
+
+  return score.final(eval_context.classical.phase);
 }
 
 bool BughouseEvaluator::is_noisy(const BughousePosition &position,
                                  PlayerId root_player) const {
-  // TODO
+  const Board &board = position.boards[board_of(root_player)];
+
+  return classical_.is_noisy(board) ||
+         has_check_drop(board, position.pockets[to_int(root_player)],
+                        colour_of_player(root_player));
 }
 
 float BughouseEvaluator::volatility(const BughousePosition &position,
                                     PlayerId root_player) const {
-  // TODO
+  init_attack_tables();
+
+  int own_board = board_of(root_player);
+  int partner_board = 1 - own_board;
+
+  float pocket =
+      VOLATILITY_OWN_BOARD_WEIGHT *
+          (pocket_weight_sum(position.pockets[to_int(root_player)]) +
+           pocket_weight_sum(
+               position.pockets[to_int(next_player(root_player))])) +
+      VOLATILITY_PARTNER_BOARD_WEIGHT *
+          (pocket_weight_sum(
+               position.pockets[to_int(partner_of(root_player))]) +
+           pocket_weight_sum(
+               position.pockets[to_int(partner_of(next_player(root_player)))]));
+  pocket = std::clamp(pocket, 0.f, 1.f);
+
+  float exposure =
+      std::clamp(std::max(VOLATILITY_OWN_BOARD_WEIGHT *
+                              board_exposure(position.boards[own_board]),
+                          VOLATILITY_PARTNER_BOARD_WEIGHT *
+                              board_exposure(position.boards[partner_board])),
+                 0.f, 1.f);
+
+  return std::clamp(pocket + VOLATILITY_EXPOSURE_SCALE * exposure * pocket, 0.f,
+                    1.f);
 }
