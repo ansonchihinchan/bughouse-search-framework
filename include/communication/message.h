@@ -1,7 +1,6 @@
 #pragma once
 
 #include "game/types.h"
-#include <optional>
 
 // Describe one side's output intent for the current real position
 
@@ -34,9 +33,9 @@ struct StrategyRequest {
 };
 
 struct Message {
-  // Board full move count at root player's board
-  int move_no = 0;
+  PlayerId sender = NO_PLAYER;
+  int move_no = 0; // Board's full move count
 
-  std::optional<PieceRequest> piece_request;
-  std::optional<StrategyRequest> strat_request;
+  PieceRequest piece_request{};
+  StrategyRequest strat_request{};
 };

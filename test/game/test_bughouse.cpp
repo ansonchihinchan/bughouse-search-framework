@@ -12,7 +12,7 @@ constexpr Square sq(char file, int rank) {
 }
 } // namespace
 
-TEST_CASE("BughouseState initializes both boards to the standard start",
+TEST_CASE("BughouseState initialises both boards to the standard start",
           "[bughouse][init]") {
   BughouseState game;
 
@@ -22,13 +22,13 @@ TEST_CASE("BughouseState initializes both boards to the standard start",
   REQUIRE(game.position.boards[1].sideToMove == WHITE);
 }
 
-TEST_CASE("BughouseState initializes all pockets empty", "[bughouse][init]") {
+TEST_CASE("BughouseState initialises all pockets empty", "[bughouse][init]") {
   BughouseState game;
   for (auto &p : game.position.pockets)
     REQUIRE(p.empty());
 }
 
-TEST_CASE("BughouseState initializes clocks for all players",
+TEST_CASE("BughouseState initialises clocks for all players",
           "[bughouse][init]") {
   BughouseState game;
   for (int i = 0; i < PLAYER_NO; i++)

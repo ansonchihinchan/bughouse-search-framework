@@ -3,7 +3,6 @@
 #include "game/attacks.h"
 #include "game/movegen.h"
 #include "game/piece_value.h"
-#include "game/bitboards.h"
 
 #include <algorithm>
 #include <bit>
@@ -11,30 +10,13 @@
 #include <vector>
 
 namespace {
-Bitboard piece_attack_bb(PieceType pt, Colour colour, Square sq, Bitboard occ) {
-  switch (pt) {
-  case PAWN:
-    return Bitboards::pawn_attacks(1ULL << sq, colour);
-  case KNIGHT:
-    return knight_attacks(sq);
-  case BISHOP:
-    return bishop_attacks(sq, occ);
-  case ROOK:
-    return rook_attacks(sq, occ);
-  case QUEEN:
-    return bishop_attacks(sq, occ) | rook_attacks(sq, occ);
-  default:
-    return 0;
-  }
-}
-
 bool square_gives_check(const Board &board, PieceType pt, Colour colour,
                         Square to) {
   Bitboard enemy_king = board.bitboard_piece(make_piece(flip(colour), KING));
   if (!enemy_king)
     return false;
   Bitboard occ = board.bitboard_all() | (1ULL << to);
-  return (piece_attack_bb(pt, colour, to, occ) & enemy_king) != 0;
+  return (piece_attacks(pt, colour, to, occ) & enemy_king) != 0;
 }
 
 // return the number of king's flight squares remain uncovered by the drop
@@ -62,8 +44,8 @@ int fork_value(const Board &board, Colour attacker_colour, Bitboard attack_bb) {
   return hits >= 2 ? value : 0;
 }
 
-bool supports_promotion(const Board &board, Colour colour, Bitboard drop_attacks,
-                        Square drop_sq) {
+bool supports_promotion(const Board &board, Colour colour,
+                        Bitboard drop_attacks, Square drop_sq) {
   Bitboard pawns = board.bitboard_piece(make_piece(colour, PAWN));
   int promo_rank = (colour == WHITE) ? 6 : 1;
   Bitboard about_to_promote = pawns & (0xFFULL << (promo_rank * 8));
@@ -140,7 +122,7 @@ EvalScore best_drop_threat(const Board &board, PieceType pt, Colour colour,
 
     Square to = move.to;
     Bitboard occ_after = board.bitboard_all() | (1ULL << to);
-    Bitboard attack_bb = piece_attack_bb(pt, colour, to, occ_after);
+    Bitboard attack_bb = piece_attacks(pt, colour, to, occ_after);
 
     int mid = 0, end = 0;
 
@@ -236,10 +218,12 @@ EvalScore DropEvaluator::evaluate(const EvalContext &context) const {
   EvalScore score = our_threats - their_threats;
 
   if (!bughouse.partner_pocket().empty()) {
-    int urgency = std::clamp(
-        static_cast<int>(context.communication.partner.king_danger), 0, 20);
-    score += EvalScore(DROP_PARTNER_ESTIMATE_WEIGHT_MID * urgency / 20,
-                       DROP_PARTNER_ESTIMATE_WEIGHT_END * urgency / 20);
+    int urgency =
+        std::clamp(static_cast<int>(context.communication.partner.king_danger),
+                   0, PARTNER_KING_DANGER_CLAMP);
+    score += EvalScore(
+        DROP_PARTNER_ESTIMATE_WEIGHT_MID * urgency / PARTNER_KING_DANGER_CLAMP,
+        DROP_PARTNER_ESTIMATE_WEIGHT_END * urgency / PARTNER_KING_DANGER_CLAMP);
   }
 
   return score;

@@ -9,6 +9,8 @@ inline constexpr std::array<int, 4> ORTHO_DIRS{8, 1, -1, -8};
 
 void init_attack_tables();
 
+Bitboard pawn_attacks(Bitboard pawns, Colour colour);
+
 Bitboard knight_attacks(Square square);
 Bitboard king_attacks(Square square);
 
@@ -16,5 +18,8 @@ Bitboard bishop_attacks(Square square, Bitboard bitboard);
 Bitboard rook_attacks(Square square, Bitboard bitboard);
 Bitboard queen_attacks(Square square, Bitboard bitboard);
 
+Bitboard piece_attacks(PieceType pt, Colour colour, Square sq, Bitboard occ);
+
 bool move_gives_check(const Board &board, Move move, Colour colour);
-bool drop_gives_check(const Board &board, PieceType pt, Square to, Colour colour);
+bool drop_gives_check(const Board &board, PieceType pt, Square to,
+                      Colour colour);

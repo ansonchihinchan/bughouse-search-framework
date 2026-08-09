@@ -6,6 +6,13 @@ add_executable(eval_tests
     test_classical.cpp
     test_score.cpp
     test_types.cpp
+    bughouse/test_drop.cpp
+    bughouse/test_exchange.cpp
+    bughouse/test_initiative.cpp
+    bughouse/test_king_danger.cpp
+    bughouse/test_partner.cpp
+    bughouse/test_pocket.cpp    
+    bughouse/test_prediction.cpp
     classical/test_activity.cpp    
     classical/test_king_safety.cpp
     classical/test_material.cpp

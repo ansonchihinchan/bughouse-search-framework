@@ -1,18 +1,18 @@
 #pragma once
 
+#include "communication/channel.h"
 #include "communication/message.h"
+#include "game/bughouse.h"
 #include "game/types.h"
-#include <vector>
+#include <array>
 
 // TODO
 struct PredictionSummary {
-  float expected_incoming = 0.f;
-  float expected_outgoing = 0.f;
+  std::array<float, PIECE_TYPE_NO> receive_probability{};
+  std::array<float, PIECE_TYPE_NO> donate_probability{};
 
-  float probability_receive_knight = 0.f;
-  float probability_receive_bishop = 0.f;
-  float probability_receive_rook = 0.f;
-  float probability_receive_queen = 0.f;
+  float expected_incoming_value = 0.f;
+  float expected_outgoing_value = 0.f;
 
   float attack_confidence = 0.f;
   float defence_confidence = 0.f;
@@ -26,14 +26,27 @@ struct PartnerContext {
   float king_danger = 0.f;
   int phase = 0;
 
-  PieceRequest piece_request{};
-  StrategyRequest strat_request{};
-
+  // TODO: stall intent, remove danger flag
   bool danger = false;
   bool stall = false;
 };
 
+bool is_dangerous(int material_balance, float king_danger, int phase);
+bool should_stall(float stall_intent);
+
 struct CommunicationContext {
   PartnerContext partner;
+  Message message;
   PredictionSummary prediction;
 };
+
+PartnerContext make_partner_context(const BughousePosition &position,
+                                    PlayerId partner);
+
+PredictionSummary make_prediction_summary(const BughousePosition &position,
+                                          PlayerId root_player,
+                                          Message message);
+
+CommunicationContext
+make_communication_context(const BughousePosition &position,
+                           PlayerId root_player, const Channel &channel);

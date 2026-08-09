@@ -2,9 +2,9 @@
 
 #include "eval/feature.h"
 
-class KingDangerEvaluator : public BughouseFeature { 
+class KingDangerEvaluator : public BughouseFeature {
 public:
-    EvalScore evaluate(const EvalContext &context) const override;
-    
-    const std::string_view name() const override { return "king_danger"; }
+  EvalScore evaluate(const EvalContext &context) const override;
+
+  const std::string_view name() const override { return "king_danger"; }
 };

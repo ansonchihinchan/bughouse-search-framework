@@ -1,7 +1,15 @@
 add_library(eval
+    bughouse.cpp
     classical.cpp
     score.cpp
     types.cpp
+    bughouse/drop.cpp
+    bughouse/exchange.cpp
+    bughouse/initiative.cpp
+    bughouse/king_danger.cpp
+    bughouse/partner.cpp
+    bughouse/pocket.cpp
+    bughouse/prediction.cpp
     classical/activity.cpp
     classical/king_safety.cpp
     classical/material.cpp
@@ -10,11 +18,6 @@ add_library(eval
     classical/piece_square.cpp
     classical/space.cpp
     classical/tempo.cpp
-    bughouse/communication.cpp
-    bughouse/drop.cpp
-    bughouse/exchange.cpp
-    bughouse/king_danger.cpp
-    bughouse/pocket.cpp
 )
 
 target_include_directories(eval
@@ -23,5 +26,7 @@ target_include_directories(eval
 )
 
 target_link_libraries(eval
-    PUBLIC game
+    PUBLIC
+        game
+        communication
 )

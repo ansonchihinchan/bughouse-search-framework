@@ -22,6 +22,8 @@ public:
     return (mid_game_ * phase + end_game_ * (MAX_PHASE - phase)) / MAX_PHASE;
   }
 
+  EvalScore scale(float weight);
+
 private:
   int mid_game_;
   int end_game_;

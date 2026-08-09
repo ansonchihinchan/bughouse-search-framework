@@ -1,6 +1,6 @@
 #include "eval/bughouse/exchange.h"
-#include "game/piece_value.h"
 #include "eval/const.h"
+#include "game/piece_value.h"
 
 #include <algorithm>
 #include <bit>
@@ -19,14 +19,14 @@ Bitboard contested(const Board &board, Colour colour, Bitboard attacked_by,
 }
 
 float urgency_weight(Urgency urgency) {
-  return COMM_URGENCY_WEIGHT[static_cast<int>(urgency)];
+  return PARTNER_URGENCY_WEIGHT[static_cast<int>(urgency)];
 }
 
 float eta_weight(int eta_plies) {
-  if (eta_plies < 0 || eta_plies >= COMM_ETA_HORIZON_PLIES)
+  if (eta_plies < 0 || eta_plies >= PARTNER_ETA_HORIZON_PLIES)
     return 0.f;
-  return static_cast<float>(COMM_ETA_HORIZON_PLIES - eta_plies) /
-         static_cast<float>(COMM_ETA_HORIZON_PLIES);
+  return static_cast<float>(PARTNER_ETA_HORIZON_PLIES - eta_plies) /
+         static_cast<float>(PARTNER_ETA_HORIZON_PLIES);
 }
 
 template <typename MultiplierFunc>
@@ -55,6 +55,7 @@ EvalScore ExchangeEvaluator::evaluate(const EvalContext &context) const {
   const Board &board = context.classical.board;
   const AttackInfo &attack_info = context.classical.attack_info;
   const PartnerContext &partner = context.communication.partner;
+  const Message &message = context.communication.message;
 
   Colour us = colour_of_player(context.bughouse.root_player);
   Colour them = flip(us);
@@ -65,30 +66,28 @@ EvalScore ExchangeEvaluator::evaluate(const EvalContext &context) const {
                                         attack_info.attacks[them]);
   Bitboard ours_hanging =
       hanging(board, us, attack_info.attacks[them], attack_info.attacks[us]);
-  Bitboard ours_contested = contested(board, us, attack_info.attacks[them],
-                                      attack_info.attacks[us]);
+  Bitboard ours_contested =
+      contested(board, us, attack_info.attacks[them], attack_info.attacks[us]);
 
   int partner_danger_scale = std::clamp(static_cast<int>(partner.king_danger),
                                         0, PARTNER_KING_DANGER_CLAMP);
   float danger_ratio =
       static_cast<float>(partner_danger_scale) / PARTNER_KING_DANGER_CLAMP;
 
-  float request_weight =
-      partner.piece_request.confidence *
-      urgency_weight(partner.piece_request.urgency) *
-      eta_weight(partner.piece_request.eta_plies);
+  float request_weight = message.piece_request.confidence *
+                         urgency_weight(message.piece_request.urgency) *
+                         eta_weight(message.piece_request.eta_plies);
 
   float danger_signal_weight =
-      partner.danger
-          ? partner.strat_request.confidence *
-                urgency_weight(partner.strat_request.urgency)
-          : 0.f;
+      partner.danger ? message.strat_request.confidence *
+                           urgency_weight(message.strat_request.urgency)
+                     : 0.f;
 
   auto help_multiplier = [&](PieceType pt) -> std::pair<float, float> {
     float requested_mid =
-        (partner.piece_request.piece == pt) ? EXCHANGE_REQUEST_BONUS_MID : 0.f;
+        (message.piece_request.piece == pt) ? EXCHANGE_REQUEST_BONUS_MID : 0.f;
     float requested_end =
-        (partner.piece_request.piece == pt) ? EXCHANGE_REQUEST_BONUS_END : 0.f;
+        (message.piece_request.piece == pt) ? EXCHANGE_REQUEST_BONUS_END : 0.f;
     float help_bonus = partner.danger ? EXCHANGE_PARTNER_HELP_BONUS : 0.f;
 
     return {EXCHANGE_BASE_MULTIPLIER + requested_mid + help_bonus,
@@ -110,13 +109,13 @@ EvalScore ExchangeEvaluator::evaluate(const EvalContext &context) const {
   double help_mid = 0.0, help_end = 0.0;
   accumulate(board, theirs_hanging, 1.0f, help_mid, help_end, help_multiplier);
   accumulate(board, theirs_contested, EXCHANGE_CONTESTED_FRACTION, help_mid,
-            help_end, help_multiplier);
+             help_end, help_multiplier);
 
   double threat_mid = 0.0, threat_end = 0.0;
   accumulate(board, ours_hanging, 1.0f, threat_mid, threat_end,
-            threat_multiplier);
+             threat_multiplier);
   accumulate(board, ours_contested, EXCHANGE_CONTESTED_FRACTION, threat_mid,
-            threat_end, threat_multiplier);
+             threat_end, threat_multiplier);
 
   return EvalScore(static_cast<int>(std::lround(help_mid - threat_mid)),
                    static_cast<int>(std::lround(help_end - threat_end)));

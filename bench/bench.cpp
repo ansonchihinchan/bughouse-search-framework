@@ -14,8 +14,8 @@
 //   bench_search [--depth N] [--max-nodes N] [--time-ms N] [--csv PATH]
 
 #include "evaluator.h"
-#include "positions.h"
 #include "game/board.h"
+#include "positions.h"
 #include "search/alpha_beta_search.h"
 #include "search/null_move_search.h"
 #include "search/pvs.h"
@@ -112,7 +112,8 @@ BenchRow run_one(const std::string &algorithm, Search &search,
   BughouseClock clock;
   clock.set(5 * 60 * 1000, 2000);
 
-  SearchContext context = make_context(clock, to_player(spec.root_player));
+  SearchContext context =
+      make_context(clock, to_player(spec.root_player), context.comm_context);
   SearchLimits limits;
   limits.max_depth = args.depth;
   limits.max_nodes = args.max_nodes;

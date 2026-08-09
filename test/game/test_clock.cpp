@@ -3,7 +3,7 @@
 #include "game/clock.h"
 #include <thread>
 
-TEST_CASE("BughouseClock::set initializes all players and clears active player",
+TEST_CASE("BughouseClock::set initialises all players and clears active player",
           "[clock]") {
   BughouseClock c;
   c.set(5000, 250);

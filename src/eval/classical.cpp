@@ -22,7 +22,7 @@ ClassicalEvaluator::ClassicalEvaluator() {
 }
 
 int ClassicalEvaluator::evaluate(const Board &board, Colour side) const {
-  ClassicalContext eval_context = to_classical_context(board);
+  ClassicalContext eval_context = make_classical_context(board);
   EvalScore score = EvalScore(0);
   for (const auto &feature : features_)
     score += feature->evaluate(eval_context);

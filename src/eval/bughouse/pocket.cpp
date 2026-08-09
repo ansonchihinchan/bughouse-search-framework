@@ -1,7 +1,7 @@
 #include "eval/bughouse/pocket.h"
 #include "eval/const.h"
-#include "game/piece_value.h"
 #include "game/bitboards.h"
+#include "game/piece_value.h"
 
 #include <algorithm>
 #include <bit>
@@ -56,8 +56,8 @@ EvalScore pocket_utility(const Pocket &pocket, int openness, int exposure) {
   EvalScore total(0);
   for (int pt = PAWN; pt <= QUEEN; pt++) {
     PieceType piece_type = static_cast<PieceType>(pt);
-    total += drop_utility(piece_type, pocket.count(piece_type), openness,
-                          exposure);
+    total +=
+        drop_utility(piece_type, pocket.count(piece_type), openness, exposure);
   }
   return total;
 }
@@ -85,12 +85,13 @@ EvalScore PocketEvaluator::evaluate(const EvalContext &context) const {
   int their_exposure = king_exposure(context.classical, them);
   int our_exposure = king_exposure(context.classical, us);
 
-  EvalScore score = pocket_utility(bughouse.own_pocket(), openness, their_exposure) -
-                    pocket_utility(bughouse.opp_pocket(), openness, our_exposure);
+  EvalScore score =
+      pocket_utility(bughouse.own_pocket(), openness, their_exposure) -
+      pocket_utility(bughouse.opp_pocket(), openness, our_exposure);
 
   const PartnerContext &partner = context.communication.partner;
-  int partner_exposure =
-      std::clamp(static_cast<int>(partner.king_danger), 0, 20);
+  int partner_exposure = std::clamp(static_cast<int>(partner.king_danger), 0,
+                                    PARTNER_KING_DANGER_CLAMP);
 
   EvalScore partner_raw = pocket_utility(
       bughouse.partner_pocket(), POCKET_OPENNESS_MIDPOINT, partner_exposure);

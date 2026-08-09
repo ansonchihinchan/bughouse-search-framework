@@ -28,7 +28,7 @@ struct ClassicalContext {
   int phase = EvalScore::MAX_PHASE;
 };
 
-ClassicalContext to_classical_context(const Board &board);
+ClassicalContext make_classical_context(const Board &board);
 
 struct BughouseContext {
   const std::array<Pocket, PLAYER_NO> &pockets;
@@ -44,11 +44,24 @@ struct BughouseContext {
   }
 };
 
-BughouseContext to_bughouse_context(const BughousePosition &position,
-                                    PlayerId root_player);
+inline BughouseContext
+make_bughouse_context(const BughousePosition &position, PlayerId root_player,
+                      const std::array<int64_t, PLAYER_NO> &remaining) {
+  return BughouseContext{position.pockets, root_player, remaining};
+}
 
 struct EvalContext {
   ClassicalContext classical;
   BughouseContext bughouse;
   CommunicationContext communication;
 };
+
+EvalContext make_eval_context(const BughousePosition &position,
+                              PlayerId root_player,
+                              const std::array<int64_t, PLAYER_NO> &remaining,
+                              const CommunicationContext &comm_context);
+
+EvalContext make_eval_context(const BughousePosition &position,
+                              PlayerId root_player,
+                              const std::array<int64_t, PLAYER_NO> &remaining,
+                              const Channel &channel);
