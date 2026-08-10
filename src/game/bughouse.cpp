@@ -47,7 +47,7 @@ BughouseUndo apply_move(BughousePosition &position, PlayerId player,
 
   int board_idx = board_of(player);
   Board &board = position.boards[board_idx];
-  Colour player_colour = colour_of_player(player);
+  Colour player_colour = colour_of(player);
 
   PlayerId partner = partner_of(player);
   Pocket &player_pocket = position.pockets[to_int(player)];
@@ -114,6 +114,9 @@ BughouseUndo BughouseState::make_move(PlayerId player, Move move) {
                       board.is_capture(move);
 
   BughouseUndo undo = apply_move(position, player, move);
+
+  clock.stop(player);
+  clock.start(next_player(player));
 
   int prev_reversible = history.empty() ? 0 : history.back().reversible_plies;
   int reversible_plies = irreversible ? 0 : prev_reversible + 1;

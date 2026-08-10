@@ -78,7 +78,7 @@ EvalScore base_material_utility(const Pocket &pocket) {
 
 EvalScore PocketEvaluator::evaluate(const EvalContext &context) const {
   const BughouseContext &bughouse = context.bughouse;
-  Colour us = colour_of_player(bughouse.root_player);
+  Colour us = colour_of(bughouse.root_player);
   Colour them = flip(us);
 
   int openness = file_openness(context.classical.board);

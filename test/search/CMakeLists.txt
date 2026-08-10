@@ -12,6 +12,7 @@ add_executable(search_tests
 
 target_link_libraries(search_tests
     PRIVATE
+        eval
         search
         game
         Catch2::Catch2WithMain

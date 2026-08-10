@@ -2,20 +2,6 @@
 #include "eval/const.h"
 #include "eval/score.h"
 
-namespace {
-float eta_weight(int eta_plies) {
-  if (eta_plies < 0 || eta_plies >= PARTNER_ETA_HORIZON_PLIES)
-    return 0.f;
-  return static_cast<float>(PARTNER_ETA_HORIZON_PLIES - eta_plies) /
-         static_cast<float>(PARTNER_ETA_HORIZON_PLIES);
-}
-
-float urgency_weight(Urgency urgency) {
-  return PARTNER_URGENCY_WEIGHT[static_cast<int>(urgency)];
-}
-
-} // namespace
-
 EvalScore PartnerEvaluator::evaluate(const EvalContext &context) const {
   const PartnerContext &partner = context.communication.partner;
   const Message &message = context.communication.message;

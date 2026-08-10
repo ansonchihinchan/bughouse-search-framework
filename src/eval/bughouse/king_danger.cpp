@@ -109,7 +109,7 @@ EvalScore king_drop_danger(const Board &board, Square ksq, Colour king_colour,
 
 EvalScore KingDangerEvaluator::evaluate(const EvalContext &context) const {
   const Board &board = context.classical.board;
-  Colour us = colour_of_player(context.bughouse.root_player);
+  Colour us = colour_of(context.bughouse.root_player);
   Colour them = flip(us);
 
   EvalScore danger_to_us(0);

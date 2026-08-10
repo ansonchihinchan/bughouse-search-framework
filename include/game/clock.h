@@ -14,8 +14,8 @@ public:
   std::array<int64_t, 4> time_ms{};
 
   int increment_ms = 0;
-  PlayerId active_player = NO_PLAYER;
-  Clock::time_point turn_start;
+  std::array<PlayerId, BOARD_NO> active_players{NO_PLAYER, NO_PLAYER};
+  std::array<Clock::time_point, BOARD_NO> turn_start{};
 
   void set(int64_t base_ms, int inc_ms);
   void start(PlayerId player_id);
@@ -24,4 +24,8 @@ public:
   int64_t remaining(PlayerId player_id) const;
   bool flagged(PlayerId player_id) const;
   bool any_flagged() const;
+
+  PlayerId active_player(int board_idx) const {
+    return active_players[board_idx];
+  }
 };

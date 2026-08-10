@@ -4,7 +4,8 @@
 #include <sstream>
 #include <string>
 
-static Square parse_square(const std::string &square) {
+namespace {
+Square parse_square(const std::string &square) {
   if (square.size() < 2)
     return -1;
   int file = square[0] - 'a';
@@ -14,7 +15,7 @@ static Square parse_square(const std::string &square) {
   return to_square(file, rank);
 }
 
-static Move parse_move(const std::string &token) {
+Move parse_move(const std::string &token) {
   // e.g. "N@e4"
   if (token.size() >= 3 && token[1] == '@') {
     const std::string pts = "PNBRQK";
@@ -47,6 +48,28 @@ static Move parse_move(const std::string &token) {
   return Move::normal(from, to);
 }
 
+PlayerId player_to_move(const BughouseState &game, int board_idx) {
+  Colour stm = game.position.boards[board_idx].sideToMove;
+  return player_on_board(board_idx, stm);
+}
+
+void print_result(const BughouseState &game) {
+  switch (game.result()) {
+  case GameResult::TEAM_A_WINS:
+    std::cout << "Team A wins.\n";
+    break;
+  case GameResult::TEAM_B_WINS:
+    std::cout << "Team B wins.\n";
+    break;
+  case GameResult::DRAW:
+    std::cout << "Draw.\n";
+    break;
+  default:
+    break;
+  }
+}
+} // namespace
+
 int main() {
   Board::init_zobrist();
 
@@ -55,7 +78,6 @@ int main() {
 
   std::cout << "Commands: 'A <move>' for board A, 'B <move>' for board B\n";
   std::cout << "          'test <depth>' to test move gen, 'quit' to exit\n\n";
-  ;
 
   std::string line;
   while (std::getline(std::cin, line)) {
@@ -77,19 +99,24 @@ int main() {
     }
 
     int board_idx = -1;
-    std::string move_str = cmd;
-    if (cmd == "A") {
+    if (cmd == "A")
       board_idx = 0;
-    } else if (cmd == "B") {
+    else if (cmd == "B")
       board_idx = 1;
-    } else {
+    else {
       std::cout << "Unknown command. Try 'A <move>', 'B <move>', 'test "
                    "<depth>', 'quit'\n";
       continue;
     }
 
+    std::string move_str;
     if (!(ss >> move_str)) {
       std::cout << "Usage: " << cmd << " <move>  (e.g. " << cmd << " e2e4)\n";
+      continue;
+    }
+
+    if (game.result() != GameResult::ONGOING) {
+      std::cout << "Game is over.\n";
       continue;
     }
 
@@ -99,24 +126,18 @@ int main() {
       continue;
     }
 
-    Colour stm = game.position.boards[board_idx].sideToMove;
-    PlayerId player_id = to_player(board_idx == 0 ? stm : 3 - stm);
-
-    game.print();
-
-    switch (game.result()) {
-    case GameResult::TEAM_A_WINS:
-      std::cout << "Team A wins.\n";
-      break;
-    case GameResult::TEAM_B_WINS:
-      std::cout << "Team B wins.\n";
-      break;
-    case GameResult::DRAW:
-      std::cout << "Draw.\n";
-      break;
-    default:
+    PlayerId player_id = player_to_move(game, board_idx);
+    auto legal_moves = generate_legal_moves(game.position, player_id);
+    bool legal = std::find(legal_moves.begin(), legal_moves.end(), move) !=
+                 legal_moves.end();
+    if (!legal) {
+      std::cout << "Illegal move '" << move_str << "'\n";
       continue;
     }
+
+    game.make_move(player_id, move);
+    game.print();
+    print_result(game);
   }
 
   return 0;

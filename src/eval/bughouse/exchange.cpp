@@ -19,17 +19,6 @@ Bitboard contested(const Board &board, Colour colour, Bitboard attacked_by,
   return board.bitboard_colour(colour) & attacked_by & defended_by;
 }
 
-float urgency_weight(Urgency urgency) {
-  return PARTNER_URGENCY_WEIGHT[static_cast<int>(urgency)];
-}
-
-float eta_weight(int eta_plies) {
-  if (eta_plies < 0 || eta_plies >= PARTNER_ETA_HORIZON_PLIES)
-    return 0.f;
-  return static_cast<float>(PARTNER_ETA_HORIZON_PLIES - eta_plies) /
-         static_cast<float>(PARTNER_ETA_HORIZON_PLIES);
-}
-
 template <typename MultiplierFunc>
 void accumulate(const Board &board, Bitboard squares, float fraction,
                 double &mid_total, double &end_total,
@@ -58,7 +47,7 @@ EvalScore ExchangeEvaluator::evaluate(const EvalContext &context) const {
   const PartnerContext &partner = context.communication.partner;
   const Message &message = context.communication.message;
 
-  Colour us = colour_of_player(context.bughouse.root_player);
+  Colour us = colour_of(context.bughouse.root_player);
   Colour them = flip(us);
 
   Bitboard theirs_hanging =
@@ -79,12 +68,13 @@ EvalScore ExchangeEvaluator::evaluate(const EvalContext &context) const {
                          urgency_weight(message.piece_request.urgency) *
                          eta_weight(message.piece_request.eta_plies);
 
-  bool danger = is_dangerous(board, context.classical.phase);
-
   float danger_signal_weight =
-      danger ? message.strat_request.confidence *
-                   urgency_weight(message.strat_request.urgency)
-             : 0.f;
+      message.strat_request.strat == StrategyType::Defend
+          ? message.strat_request.confidence *
+                urgency_weight(message.strat_request.urgency)
+          : 0.f;
+
+  bool danger = danger_ratio > 0.f || danger_signal_weight > 0.f;
 
   auto help_multiplier = [&](PieceType pt) -> std::pair<float, float> {
     float requested_mid =

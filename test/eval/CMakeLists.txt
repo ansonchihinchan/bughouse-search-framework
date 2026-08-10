@@ -4,6 +4,7 @@ include(Catch)
 
 add_executable(eval_tests
     test_classical.cpp
+    test_context.cpp
     test_score.cpp
     test_types.cpp
     bughouse/test_drop.cpp

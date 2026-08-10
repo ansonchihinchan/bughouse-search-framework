@@ -46,7 +46,7 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
 
   const Board &board = position.boards[board_of(context.root_player)];
   bool in_check = board.is_in_check();
-  Colour mover_colour = colour_of_player(context.root_player);
+  Colour mover_colour = colour_of(context.root_player);
 
   if (in_check && qply >= params_.quiescence_max_ply)
     return evaluator_.evaluate(position, context.root_player, context.remaining,
@@ -106,11 +106,11 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
   for (Move move : moves) {
     BughouseUndo undo = apply_move(position, context.root_player, move);
 
-    int score = -quiescence(position,
-                            make_context(context.remaining,
-                                         next_player(context.root_player),
-                                         context.comm_context),
-                            -beta, -alpha, qply + 1, stop_token);
+    int score = -quiescence(
+        position,
+        make_context(context.remaining, next_player(context.root_player),
+                     context.comm_context, context.comm_hash),
+        -beta, -alpha, qply + 1, stop_token);
     undo_move(position, context.root_player, move, undo);
 
     if (score >= beta)

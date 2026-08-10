@@ -282,3 +282,24 @@ TEST_CASE("search() reports no move and a zero score for an already "
   REQUIRE(result.score == 0);
   REQUIRE(result.stats.depth_reached == 0);
 }
+
+TEST_CASE("make_context derives comm_hash once at the root and threads it "
+          "through unchanged in the tree",
+          "[search][tree_search][hash]") {
+  BughouseClock clock = make_clock();
+
+  CommunicationContext quiet{};
+  CommunicationContext requesting{};
+  requesting.message.piece_request = {QUEEN, 1.0f, Urgency::Critical, 0};
+
+  SearchContext quiet_ctx = make_context(clock, to_player(0), quiet);
+  SearchContext requesting_ctx = make_context(clock, to_player(0), requesting);
+
+  REQUIRE(quiet_ctx.comm_hash != requesting_ctx.comm_hash);
+
+  SearchContext propagated =
+      make_context(quiet_ctx.remaining, to_player(1), quiet_ctx.comm_context,
+                   quiet_ctx.comm_hash);
+
+  REQUIRE(propagated.comm_hash == quiet_ctx.comm_hash);
+}

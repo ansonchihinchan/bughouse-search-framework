@@ -207,7 +207,7 @@ EvalScore DropEvaluator::evaluate(const EvalContext &context) const {
   const ClassicalContext &classical = context.classical;
   const Board &board = classical.board;
 
-  Colour us = colour_of_player(bughouse.root_player);
+  Colour us = colour_of(bughouse.root_player);
   Colour them = flip(us);
 
   EvalScore our_threats = pocket_drop_threat(

@@ -34,7 +34,7 @@ inline int board_of(PlayerId player) { return to_int(player) < 2 ? 0 : 1; }
 // Partners: (0, 2), (1, 3)
 inline PlayerId partner_of(PlayerId player) { return player ^ 2; }
 
-inline Colour colour_of_player(PlayerId player) {
+inline Colour colour_of(PlayerId player) {
   int p = to_int(player);
   assert(p >= 0 && p < PLAYER_NO);
   return (p == 0 || p == 3) ? WHITE : BLACK;
@@ -55,8 +55,8 @@ inline PlayerId player_on_board(int board_idx, Colour colour) {
 
 // Colour of player's team on board board_idx
 inline Colour team_colour(PlayerId player, int board_idx) {
-  return colour_of_player((board_of(player) == board_idx) ? player
-                                                          : partner_of(player));
+  return colour_of((board_of(player) == board_idx) ? player
+                                                   : partner_of(player));
 }
 
 // Returns +1 if player 2 is on player1's team and -1 otherwise

@@ -5,6 +5,7 @@ add_executable(bench_search
 
 target_link_libraries(bench_search
     PRIVATE
+        eval
         game
         search
 )

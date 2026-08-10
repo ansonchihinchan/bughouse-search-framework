@@ -15,7 +15,7 @@ struct PredictionSummary {
   float expected_outgoing_value = 0.f;
 
   float attack_confidence = 0.f;
-  float defence_confidence = 0.f;
+  float defence_confidence = 1.f;
 
   float volatility = 0.f;
 };
@@ -48,3 +48,5 @@ PredictionSummary make_prediction_summary(const BughousePosition &position,
 CommunicationContext
 make_communication_context(const BughousePosition &position,
                            PlayerId root_player, const Channel &channel);
+
+uint64_t communication_hash(const CommunicationContext &context);

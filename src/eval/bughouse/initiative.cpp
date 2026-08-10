@@ -289,7 +289,7 @@ EvalScore InitiativeEvaluator::evaluate(const EvalContext &context) const {
   const BughouseContext &bughouse = context.bughouse;
   const Board &board = classical.board;
 
-  Colour us = colour_of_player(bughouse.root_player);
+  Colour us = colour_of(bughouse.root_player);
   Colour them = flip(us);
 
   EvalScore score(0);
