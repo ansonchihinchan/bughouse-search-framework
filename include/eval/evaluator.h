@@ -1,6 +1,6 @@
 #pragma once
 
-#include "communication/context.h"
+#include "eval/context.h"
 #include "game/bughouse.h"
 
 // Abstract Evaluator interface

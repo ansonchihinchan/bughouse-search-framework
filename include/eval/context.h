@@ -23,15 +23,13 @@ struct PredictionSummary {
 struct PartnerContext {
   // board-derived
   int material_balance = 0;
-  float king_danger = 0.f;
+  int king_danger = 0.f;
   int phase = 0;
 
-  // TODO: stall intent, remove danger flag
-  bool danger = false;
-  bool stall = false;
+  float stall_intent = 0.f;
 };
 
-bool is_dangerous(int material_balance, float king_danger, int phase);
+bool is_dangerous(const Board &board, int phase);
 bool should_stall(float stall_intent);
 
 struct CommunicationContext {

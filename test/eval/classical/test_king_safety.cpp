@@ -3,7 +3,6 @@
 #include "eval/classical/king_safety.h"
 #include "eval/types.h"
 #include "game/board.h"
-#include "search/see.h"
 
 namespace {
 constexpr int ATTACK_UNIT_PENALTY = 8;

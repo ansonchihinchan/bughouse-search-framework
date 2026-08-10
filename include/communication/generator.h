@@ -8,6 +8,7 @@
 // Inspects root player's resulting position and search output
 // Decides the message to partner
 
+// TODO
 class Generator {
 public:
   Message generate_message(const SearchResult &search_result,

@@ -1,5 +1,6 @@
 #include "eval/bughouse/exchange.h"
 #include "eval/const.h"
+#include "eval/context.h"
 #include "game/piece_value.h"
 
 #include <algorithm>
@@ -78,27 +79,27 @@ EvalScore ExchangeEvaluator::evaluate(const EvalContext &context) const {
                          urgency_weight(message.piece_request.urgency) *
                          eta_weight(message.piece_request.eta_plies);
 
+  bool danger = is_dangerous(board, context.classical.phase);
+
   float danger_signal_weight =
-      partner.danger ? message.strat_request.confidence *
-                           urgency_weight(message.strat_request.urgency)
-                     : 0.f;
+      danger ? message.strat_request.confidence *
+                   urgency_weight(message.strat_request.urgency)
+             : 0.f;
 
   auto help_multiplier = [&](PieceType pt) -> std::pair<float, float> {
     float requested_mid =
         (message.piece_request.piece == pt) ? EXCHANGE_REQUEST_BONUS_MID : 0.f;
     float requested_end =
         (message.piece_request.piece == pt) ? EXCHANGE_REQUEST_BONUS_END : 0.f;
-    float help_bonus = partner.danger ? EXCHANGE_PARTNER_HELP_BONUS : 0.f;
+    float help_bonus = danger ? EXCHANGE_PARTNER_HELP_BONUS : 0.f;
 
     return {EXCHANGE_BASE_MULTIPLIER + requested_mid + help_bonus,
             EXCHANGE_BASE_MULTIPLIER + requested_end + help_bonus};
   };
 
   auto threat_multiplier = [&](PieceType) -> std::pair<float, float> {
-    float flag_mid =
-        partner.danger ? EXCHANGE_THREAT_DANGER_FLAG_BONUS_MID : 0.f;
-    float flag_end =
-        partner.danger ? EXCHANGE_THREAT_DANGER_FLAG_BONUS_END : 0.f;
+    float flag_mid = danger ? EXCHANGE_THREAT_DANGER_FLAG_BONUS_MID : 0.f;
+    float flag_end = danger ? EXCHANGE_THREAT_DANGER_FLAG_BONUS_END : 0.f;
 
     return {EXCHANGE_BASE_MULTIPLIER +
                 EXCHANGE_THREAT_DANGER_WEIGHT_MID * danger_ratio + flag_mid,
