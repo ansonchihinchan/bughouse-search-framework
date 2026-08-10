@@ -232,3 +232,33 @@ TEST_CASE("Checkmate returns winning team", "[bughouse][result]") {
 
   REQUIRE(state.result() == GameResult::TEAM_A_WINS);
 }
+
+TEST_CASE("make_move stops the mover's clock and starts their board "
+          "opponent's",
+          "[bughouse][clock]") {
+  BughouseState game;
+  game.clock.set(10000, 0);
+  game.clock.start(to_player(0));
+
+  auto moves = generate_legal_moves(game.position, to_player(0));
+  REQUIRE_FALSE(moves.empty());
+
+  game.make_move(to_player(0), moves.front());
+
+  REQUIRE(game.clock.active_player(0) == 1);
+}
+
+TEST_CASE("make_move on one board does not disturb the other board's clock",
+          "[bughouse][clock]") {
+  BughouseState game;
+  game.clock.set(10000, 0);
+  game.clock.start(to_player(0));
+  game.clock.start(to_player(3));
+
+  auto moves = generate_legal_moves(game.position, to_player(0));
+  REQUIRE_FALSE(moves.empty());
+
+  game.make_move(to_player(0), moves.front());
+
+  REQUIRE(game.clock.active_player(1) == 3);
+}

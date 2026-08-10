@@ -53,6 +53,7 @@ struct SearchContext {
   const std::array<int64_t, PLAYER_NO> remaining;
   PlayerId root_player;
   const CommunicationContext &comm_context;
+  uint64_t comm_hash = 0;
   const std::vector<RepetitionNode> *history = nullptr;
 };
 
@@ -61,14 +62,15 @@ inline SearchContext make_context(const BughouseClock &clock, PlayerId player,
   std::array<int64_t, PLAYER_NO> remaining{};
   for (int i = 0; i < PLAYER_NO; i++)
     remaining[i] = clock.remaining(to_player(i));
-  return SearchContext{remaining, player, comm_context};
+  return SearchContext{remaining, player, comm_context,
+                       communication_hash(comm_context)};
 }
 
 constexpr SearchContext
 make_context(const std::array<int64_t, PLAYER_NO> &remaining, PlayerId player,
-             const CommunicationContext &comm_context,
+             const CommunicationContext &comm_context, uint64_t comm_hash,
              const std::vector<RepetitionNode> *history = nullptr) {
-  return SearchContext{remaining, player, comm_context, history};
+  return SearchContext{remaining, player, comm_context, comm_hash, history};
 }
 
 struct SearchResult {

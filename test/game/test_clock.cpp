@@ -11,7 +11,8 @@ TEST_CASE("BughouseClock::set initialises all players and clears active player",
   for (int i = 0; i < 4; i++)
     REQUIRE(c.time_ms[i] == 5000);
   REQUIRE(c.increment_ms == 250);
-  REQUIRE(c.active_player == -1);
+  REQUIRE(c.active_player(0) == NO_PLAYER);
+  REQUIRE(c.active_player(1) == NO_PLAYER);
 }
 
 TEST_CASE("remaining() returns the stored time when no player is active",
@@ -44,7 +45,7 @@ TEST_CASE("stop() banks elapsed time and adds the increment", "[clock]") {
   c.start(to_player(0));
   c.stop(to_player(0));
 
-  REQUIRE(c.active_player == -1);
+  REQUIRE(c.active_player(0) == NO_PLAYER);
   REQUIRE(c.time_ms[0] > 1000);
   REQUIRE(c.time_ms[0] <= 1100);
   REQUIRE(c.remaining(to_player(0)) == c.time_ms[0]);
@@ -57,7 +58,7 @@ TEST_CASE("stop() is a no-op if the given player isn't the active one",
   c.start(to_player(0));
   c.stop(to_player(1)); // player 1 isn't active and should not affect anything
 
-  REQUIRE(c.active_player == 0);
+  REQUIRE(c.active_player(0) == 0);
   REQUIRE(c.time_ms[1] == 1000);
 }
 
@@ -88,4 +89,43 @@ TEST_CASE("active player ticking down to zero eventually flags", "[clock]") {
 
   REQUIRE(c.flagged(to_player(2)));
   REQUIRE(c.any_flagged());
+}
+
+TEST_CASE("boards run independent clocks: starting a player on board B does "
+          "not disturb a running clock on board A",
+          "[clock][bughouse]") {
+  BughouseClock c;
+  c.set(10000, 0);
+
+  c.start(to_player(0)); // board 0
+  c.start(to_player(3)); // board 1
+
+  REQUIRE(c.active_player(0) == 0);
+  REQUIRE(c.active_player(1) == 3);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+  REQUIRE(c.remaining(to_player(0)) < 10000);
+  REQUIRE(c.remaining(to_player(3)) < 10000);
+
+  c.stop(to_player(0));
+
+  REQUIRE(c.active_player(0) == NO_PLAYER);
+  REQUIRE(c.active_player(1) == 3); // untouched
+}
+
+TEST_CASE("stop() only checks the active player on the mover's own board",
+          "[clock][bughouse]") {
+  BughouseClock c;
+  c.set(1000, 100);
+
+  c.start(to_player(0)); // board 0
+  c.start(to_player(2)); // board 1
+
+  c.stop(to_player(1)); // shares board 0 with player 0, but isn't active
+  REQUIRE(c.active_player(0) == 0);
+
+  c.stop(to_player(2)); // active on board 1
+  REQUIRE(c.active_player(1) == NO_PLAYER);
+  REQUIRE(c.time_ms[2] > 1000);
 }

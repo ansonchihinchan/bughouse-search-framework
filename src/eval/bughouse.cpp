@@ -117,7 +117,7 @@ bool BughouseEvaluator::is_noisy(const BughousePosition &position,
 
   return classical_.is_noisy(board) ||
          has_check_drop(board, position.pockets[to_int(root_player)],
-                        colour_of_player(root_player));
+                        colour_of(root_player));
 }
 
 float BughouseEvaluator::volatility(const BughousePosition &position,

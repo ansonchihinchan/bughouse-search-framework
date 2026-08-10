@@ -146,7 +146,7 @@ bool TreeSearch::is_reducible(const BughousePosition &position,
     return false;
 
   const Board &board = position.boards[board_of(context.root_player)];
-  if (creates_mating_threat(board, move, colour_of_player(context.root_player)))
+  if (creates_mating_threat(board, move, colour_of(context.root_player)))
     return false;
 
   return true;
@@ -164,7 +164,7 @@ void TreeSearch::order_moves(const BughousePosition &position,
                              std::vector<ScoredMove> &scored_moves,
                              const TTEntry *tt_entry, int ply) const {
   const Board &board = position.boards[board_of(context.root_player)];
-  Colour mover_colour = colour_of_player(context.root_player);
+  Colour mover_colour = colour_of(context.root_player);
   bool in_check = board.is_in_check();
 
   // Counter-move
@@ -232,7 +232,7 @@ void TreeSearch::order_moves(const BughousePosition &position,
     } else {
       Piece moved_piece =
           move.is_drop()
-              ? make_piece(colour_of_player(context.root_player), move.drop_pt)
+              ? make_piece(colour_of(context.root_player), move.drop_pt)
               : board.piece_on(move.from);
       scored_move.score = ordinary_history_.score(moved_piece, move.to);
     }
@@ -252,7 +252,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
                            bool is_null_move) {
   stats_.nodes++;
 
-  uint64_t key = position_hash(position);
+  uint64_t key = position_hash(position) ^ context.comm_hash;
 
   bool irreversible = is_null_move || prev.move.is_drop() ||
                       prev.move.type == PROMOTE ||
@@ -298,7 +298,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
   }
 
   const Board &board = position.boards[board_of(context.root_player)];
-  Colour side = colour_of_player(context.root_player);
+  Colour side = colour_of(context.root_player);
   bool in_check = board.is_in_check();
 
   int null_move_reduction = params_.null_move_reduction;
@@ -317,12 +317,12 @@ int TreeSearch::alpha_beta(BughousePosition &position,
         tt_to_score(tt_entry->score, ply) < beta)) {
     BoardUndo null_undo = make_null_move(position, context.root_player);
 
-    int score = -alpha_beta(position,
-                            make_context(context.remaining,
-                                         next_player(context.root_player),
-                                         context.comm_context),
-                            DetailedMove{}, depth - 1 - null_move_reduction,
-                            -beta, -beta + 1, ply + 1, stop_token, true);
+    int score = -alpha_beta(
+        position,
+        make_context(context.remaining, next_player(context.root_player),
+                     context.comm_context, context.comm_hash),
+        DetailedMove{}, depth - 1 - null_move_reduction, -beta, -beta + 1,
+        ply + 1, stop_token, true);
     undo_null_move(position, context.root_player, null_undo);
 
     if (!stop_token.stop_requested() && !deadline_reached() && score >= beta) {
@@ -383,13 +383,12 @@ int TreeSearch::alpha_beta(BughousePosition &position,
 
     Piece moved_piece =
         move.is_drop()
-            ? make_piece(colour_of_player(context.root_player), move.drop_pt)
+            ? make_piece(colour_of(context.root_player), move.drop_pt)
             : board.piece_on(move.from);
 
     if (futility && move_index > 0 && !capture && !move.is_drop() &&
-        !move_gives_check(board, move, colour_of_player(context.root_player)) &&
-        !creates_mating_threat(board, move,
-                               colour_of_player(context.root_player)) &&
+        !move_gives_check(board, move, colour_of(context.root_player)) &&
+        !creates_mating_threat(board, move, colour_of(context.root_player)) &&
         futility_eval + margin <= alpha) {
       move_index++;
       continue;
@@ -412,7 +411,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
     bool check = position.boards[board_of(context.root_player)].is_in_check();
     SearchContext next =
         make_context(context.remaining, next_player(context.root_player),
-                     context.comm_context);
+                     context.comm_context, context.comm_hash);
 
     int score;
 
@@ -471,10 +470,11 @@ int TreeSearch::alpha_beta(BughousePosition &position,
 
 namespace {
 std::vector<Move> extract_pv(BughousePosition position, PlayerId player,
-                             const TranspositionTable &tt, int max_len) {
+                             const TranspositionTable &tt, uint64_t comm_hash,
+                             int max_len) {
   std::vector<Move> pv;
   for (int i = 0; i < max_len; i++) {
-    uint64_t key = position_hash(position);
+    uint64_t key = position_hash(position) ^ comm_hash;
     const TTEntry *entry = tt.probe(key);
     if (!entry || entry->best_move.is_none())
       break;
@@ -500,7 +500,7 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
 
   int old_alpha = alpha;
 
-  uint64_t key = position_hash(working);
+  uint64_t key = position_hash(working) ^ context.comm_hash;
   RepetitionGuard rep_guard(search_path_, key, false);
 
   auto moves = generate_legal_moves(working, context.root_player);
@@ -543,7 +543,7 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
     bool capture = board.is_capture(move);
     Piece moved_piece =
         move.is_drop()
-            ? make_piece(colour_of_player(context.root_player), move.drop_pt)
+            ? make_piece(colour_of(context.root_player), move.drop_pt)
             : board.piece_on(move.from);
 
     BughouseUndo undo = apply_move(working, context.root_player, move);
@@ -551,7 +551,7 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
     bool check = working.boards[board_of(context.root_player)].is_in_check();
     SearchContext next =
         make_context(context.remaining, next_player(context.root_player),
-                     context.comm_context);
+                     context.comm_context, context.comm_hash);
 
     int score;
 
@@ -608,7 +608,8 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
                  : result.score >= beta    ? TTBound::LOWER
                                            : TTBound::EXACT;
   if (!result.best_move.is_none())
-    result.pv = extract_pv(position, context.root_player, tt_, depth);
+    result.pv = extract_pv(position, context.root_player, tt_, depth,
+                           context.comm_hash);
   result.completed = completed;
 
   stats_.depth_reached = depth;
