@@ -44,7 +44,6 @@ TEST_CASE("ExchangeEvaluator penalises hanging material more heavily when "
           "[eval][bughouse][exchange]") {
   Fixture fx("3rk3/8/8/3N4/8/8/8/4K3 w - - 0 1");
   fx.partner.king_danger = 20.f;
-  fx.partner.danger = true;
   fx.message.strat_request = {StrategyType::Defend, 1.0f, Urgency::Critical};
 
   ExchangeEvaluator eval;

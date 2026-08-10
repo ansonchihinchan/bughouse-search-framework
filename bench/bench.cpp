@@ -112,8 +112,9 @@ BenchRow run_one(const std::string &algorithm, Search &search,
   BughouseClock clock;
   clock.set(5 * 60 * 1000, 2000);
 
+  CommunicationContext comm_context{};
   SearchContext context =
-      make_context(clock, to_player(spec.root_player), context.comm_context);
+      make_context(clock, to_player(spec.root_player), comm_context);
   SearchLimits limits;
   limits.max_depth = args.depth;
   limits.max_nodes = args.max_nodes;

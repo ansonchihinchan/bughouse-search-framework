@@ -1,6 +1,6 @@
 #pragma once
 
-#include "communication/context.h"
+#include "eval/context.h"
 #include "eval/score.h"
 #include "game/bughouse.h"
 #include "game/piece_value.h"

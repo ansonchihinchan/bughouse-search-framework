@@ -3,7 +3,7 @@
 #include "eval/classical/material.h"
 #include "eval/types.h"
 #include "game/board.h"
-#include "search/see.h"
+#include "game/piece_value.h"
 
 TEST_CASE("MaterialEvaluator scores the balanced start position as zero",
           "[eval][material]") {
@@ -25,7 +25,7 @@ TEST_CASE("MaterialEvaluator credits an extra queen on the root player's own "
 
   MaterialEvaluator eval;
   EvalScore score = eval.evaluate(ctx);
-  REQUIRE(score.mid_game() == SEE::PIECE_VALUE[QUEEN]);
+  REQUIRE(score.mid_game() == PieceValue::PIECE_VALUE[QUEEN]);
 }
 
 TEST_CASE("MaterialEvaluator sums pieces consistently", "[eval][material]") {
@@ -37,6 +37,6 @@ TEST_CASE("MaterialEvaluator sums pieces consistently", "[eval][material]") {
   MaterialEvaluator eval;
   EvalScore score = eval.evaluate(ctx);
 
-  int expected = SEE::PIECE_VALUE[ROOK] + SEE::PIECE_VALUE[QUEEN];
+  int expected = PieceValue::PIECE_VALUE[ROOK] + PieceValue::PIECE_VALUE[QUEEN];
   REQUIRE(score.mid_game() == expected);
 }

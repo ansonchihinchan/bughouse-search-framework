@@ -1,6 +1,7 @@
 add_library(eval
     bughouse.cpp
     classical.cpp
+    context.cpp
     score.cpp
     types.cpp
     bughouse/drop.cpp
@@ -28,5 +29,4 @@ target_include_directories(eval
 target_link_libraries(eval
     PUBLIC
         game
-        communication
 )

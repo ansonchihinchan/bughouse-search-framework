@@ -25,7 +25,6 @@ TEST_CASE("PredictionEvaluator scores zero for a neutral forecast with full "
           "defence confidence",
           "[eval][prediction]") {
   PredictionSummary prediction;
-  prediction.defence_confidence = 1.f;
 
   PredictionEvaluator eval;
   EvalScore score = eval.evaluate(make_context(prediction));
@@ -38,6 +37,7 @@ TEST_CASE("PredictionEvaluator penalises low defence confidence even with "
           "no other active signal",
           "[eval][prediction]") {
   PredictionSummary prediction;
+  prediction.defence_confidence = 0.f;
 
   PredictionEvaluator eval;
   EvalScore score = eval.evaluate(make_context(prediction));

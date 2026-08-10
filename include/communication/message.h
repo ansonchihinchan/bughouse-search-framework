@@ -23,7 +23,7 @@ struct PieceRequest {
   PieceType piece = NO_PIECE_TYPE;
   float confidence = 0.f;
   Urgency urgency = Urgency::Low;
-  int eta_plies;
+  int eta_plies = 0;
 };
 
 struct StrategyRequest {
