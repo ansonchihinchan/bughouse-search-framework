@@ -13,6 +13,7 @@
 // Usage:
 //   bench_search [--depth N] [--max-nodes N] [--time-ms N] [--csv PATH]
 
+#include "eval/bughouse.h"
 #include "evaluator.h"
 #include "game/board.h"
 #include "positions.h"
@@ -265,7 +266,7 @@ int main(int argc, char **argv) {
 
   Board::init_zobrist();
 
-  BenchEvaluator evaluator;
+  BughouseEvaluator evaluator;
   const std::vector<BenchPosition> &suite = benchmark_suite();
 
   std::vector<BenchRow> rows;
@@ -279,14 +280,18 @@ int main(int argc, char **argv) {
       continue;
     }
 
-    TranspositionTable tt(64);
     SearchParams params;
+
+    TranspositionTable tt_alpha_beta(64);
+    TranspositionTable tt_pvs(64);
+    TranspositionTable tt_null_move(64);
+
     std::vector<std::unique_ptr<Search>> algorithms;
     algorithms.push_back(
-        std::make_unique<AlphaBetaSearch>(evaluator, tt, params));
-    algorithms.push_back(std::make_unique<PVS>(evaluator, tt, params));
+        std::make_unique<AlphaBetaSearch>(evaluator, tt_alpha_beta, params));
+    algorithms.push_back(std::make_unique<PVS>(evaluator, tt_pvs, params));
     algorithms.push_back(
-        std::make_unique<NullMoveSearch>(evaluator, tt, params));
+        std::make_unique<NullMoveSearch>(evaluator, tt_null_move, params));
 
     for (auto &search : algorithms)
       rows.push_back(

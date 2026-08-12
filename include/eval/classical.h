@@ -10,6 +10,7 @@ public:
   ClassicalEvaluator();
 
   int evaluate(const Board &Board, Colour side) const;
+  int evaluate(const ClassicalContext &context, Colour side) const;
   bool is_noisy(const Board &board) const;
 
 private:

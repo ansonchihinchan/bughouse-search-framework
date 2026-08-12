@@ -108,6 +108,12 @@ make_communication_context(const BughousePosition &position,
   const PlayerId partner = partner_of(root_player);
   context.message = channel.latest(partner);
   context.partner = make_partner_context(position, partner);
+
+  PlayerId other_side_partner = partner_of(next_player(root_player));
+  context.partner_by_colour[colour_of(partner)] = context.partner;
+  context.partner_by_colour[colour_of(other_side_partner)] =
+      make_partner_context(position, other_side_partner);
+
   context.prediction =
       make_prediction_summary(position, root_player, context.message);
   return context;

@@ -127,10 +127,14 @@ EvalContext make_eval_context(const BughousePosition &position,
                               PlayerId root_player,
                               const std::array<int64_t, PLAYER_NO> &remaining,
                               const CommunicationContext &comm_context) {
-  return EvalContext{
+  EvalContext context{
       make_classical_context(position.boards[board_of(root_player)]),
       make_bughouse_context(position, root_player, remaining), comm_context};
-};
+
+  context.communication.partner =
+      comm_context.partner_by_colour[colour_of(partner_of(root_player))];
+  return context;
+}
 
 EvalContext make_eval_context(const BughousePosition &position,
                               PlayerId root_player,

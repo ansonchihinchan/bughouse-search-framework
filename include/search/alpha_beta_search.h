@@ -13,11 +13,12 @@ public:
 protected:
   int search_first_move(BughousePosition &position, const SearchContext &next,
                         const DetailedMove &prev, int depth, int alpha,
-                        int beta, int ply, std::stop_token stop_token) override;
+                        int beta, int ply, bool is_pv,
+                        std::stop_token stop_token) override;
 
   int search_tail_move(BughousePosition &position, const SearchContext &next,
                        const DetailedMove &prev, int depth, int alpha, int beta,
-                       int ply, int reduction,
+                       int ply, int reduction, bool is_pv,
                        std::stop_token stop_token) override;
 
   int quiescence(BughousePosition &position, const SearchContext &context,

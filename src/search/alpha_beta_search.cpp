@@ -7,28 +7,28 @@
 int AlphaBetaSearch::search_first_move(BughousePosition &position,
                                        const SearchContext &next,
                                        const DetailedMove &prev, int depth,
-                                       int alpha, int beta, int ply,
+                                       int alpha, int beta, int ply, bool is_pv,
                                        std::stop_token stop_token) {
   return -alpha_beta(position, next, prev, depth - 1, -beta, -alpha, ply + 1,
-                     stop_token);
+                     is_pv, stop_token);
 }
 
 int AlphaBetaSearch::search_tail_move(BughousePosition &position,
                                       const SearchContext &next,
                                       const DetailedMove &prev, int depth,
                                       int alpha, int beta, int ply,
-                                      int reduction,
+                                      int reduction, bool is_pv,
                                       std::stop_token stop_token) {
   int score;
   if (reduction > 0) {
     score = -alpha_beta(position, next, prev, depth - 1 - reduction, -beta,
-                        -alpha, ply + 1, stop_token);
+                        -alpha, ply + 1, is_pv, stop_token);
     if (score > alpha)
       score = -alpha_beta(position, next, prev, depth - 1, -beta, -alpha,
-                          ply + 1, stop_token);
+                          ply + 1, is_pv, stop_token);
   } else {
     score = -alpha_beta(position, next, prev, depth - 1, -beta, -alpha, ply + 1,
-                        stop_token);
+                        is_pv, stop_token);
   }
   return score;
 }
@@ -93,17 +93,22 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
     }
   }
 
-  std::sort(moves.begin(), moves.end(), [&](const Move &a, const Move &b) {
-    int score_a =
-        a.is_drop() ? SEE::PIECE_VALUE[a.drop_pt] + SEE::POCKET_BONUS[a.drop_pt]
-                    : SEE::see_score(board, a);
-    int score_b =
-        b.is_drop() ? SEE::PIECE_VALUE[b.drop_pt] + SEE::POCKET_BONUS[b.drop_pt]
-                    : SEE::see_score(board, b);
-    return score_a > score_b;
-  });
+  std::vector<ScoredMove> scored_moves;
+  scored_moves.reserve(moves.size());
+  for (const Move &m : moves) {
+    int see_score =
+        m.is_drop() ? SEE::PIECE_VALUE[m.drop_pt] + SEE::POCKET_BONUS[m.drop_pt]
+                    : SEE::see_score(board, m);
+    scored_moves.push_back(ScoredMove{m, see_score});
+  }
 
-  for (Move move : moves) {
+  std::sort(scored_moves.begin(), scored_moves.end(),
+            [](const ScoredMove &a, const ScoredMove &b) {
+              return a.score > b.score;
+            });
+
+  for (const ScoredMove &scored_move : scored_moves) {
+    Move move = scored_move.move;
     BughouseUndo undo = apply_move(position, context.root_player, move);
 
     int score = -quiescence(
