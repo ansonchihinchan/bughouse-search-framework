@@ -50,6 +50,9 @@ SearchResult Searcher::run(const BughousePosition &position,
     }
 
     if (!result.best_move.is_none()) {
+      if (!result.completed)
+        break;
+
       best = result;
       prev_score = result.score;
       end_iteration(depth, best);

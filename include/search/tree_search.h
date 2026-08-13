@@ -77,9 +77,8 @@ protected:
   virtual bool null_move_enabled() const { return params_.null_move_enabled; }
 
   virtual int lmr_reduction(int depth, int move_index, float volatility) const;
-  bool is_reducible(const BughousePosition &position,
-                    const SearchContext &context, Move move, bool capture,
-                    bool in_check, bool check) const;
+  bool is_reducible(Move move, bool capture, bool in_check, bool check,
+                    bool mating_threat) const;
 
   static constexpr int HALFMOVE_LIMIT = 100;
 

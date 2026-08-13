@@ -4,6 +4,7 @@
 #include "search/see.h"
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace {
 constexpr int TT_MOVE_SCORE = 1000000;
@@ -32,6 +33,16 @@ int tt_to_score(int score, int ply) {
   if (score <= -INF_SCORE + MAX_MATE_PLY)
     return score + ply;
   return score;
+}
+
+void search_next_best(std::vector<ScoredMove> &scored_moves, size_t index) {
+  size_t best = index;
+  for (size_t i = index + 1; i < scored_moves.size(); i++) {
+    if (scored_moves[i].score > scored_moves[best].score)
+      best = i;
+  }
+  if (best != index)
+    std::swap(scored_moves[index], scored_moves[best]);
 }
 
 class RepetitionGuard {
@@ -141,17 +152,9 @@ int TreeSearch::lmr_reduction(int depth, int move_index,
   return std::clamp(static_cast<int>(reduction), 0, depth - 1);
 }
 
-bool TreeSearch::is_reducible(const BughousePosition &position,
-                              const SearchContext &context, Move move,
-                              bool capture, bool in_check, bool check) const {
-  if (capture || in_check || check)
-    return false;
-
-  const Board &board = position.boards[board_of(context.root_player)];
-  if (creates_mating_threat(board, move, colour_of(context.root_player)))
-    return false;
-
-  return true;
+bool TreeSearch::is_reducible(Move move, bool capture, bool in_check,
+                              bool check, bool mating_threat) const {
+  return !(move.is_drop() || capture || in_check || check || mating_threat);
 }
 
 int TreeSearch::futility_margin(int depth, float volatility) const {
@@ -177,20 +180,26 @@ void TreeSearch::order_moves(const BughousePosition &position,
   for (ScoredMove &scored_move : scored_moves) {
     const Move &move = scored_move.move;
 
+    scored_move.moved_piece = move.is_drop()
+                                  ? make_piece(mover_colour, move.drop_pt)
+                                  : board.piece_on(move.from);
+    scored_move.capture = board.is_capture(move);
+
     if (tt_entry && !tt_entry->best_move.is_none() &&
         move == tt_entry->best_move) {
       scored_move.score = TT_MOVE_SCORE;
       continue;
     }
 
-    if (board.is_capture(move)) {
-      if (params_.see_enabled) {
-        int see_score = SEE::see_score(board, move);
-        scored_move.score = (see_score >= 0) ? WINNING_CAPTURE_BASE + see_score
-                                             : LOSING_CAPTURE_BASE + see_score;
-      } else {
-        scored_move.score = WINNING_CAPTURE_BASE;
-      }
+    if (scored_move.capture) {
+      scored_move.see_score = SEE::see_score(board, move);
+      scored_move.see_computed = true;
+      scored_move.score =
+          params_.see_enabled
+              ? (scored_move.see_score >= 0
+                     ? WINNING_CAPTURE_BASE + scored_move.see_score
+                     : LOSING_CAPTURE_BASE + scored_move.see_score)
+              : WINNING_CAPTURE_BASE;
       continue;
     }
 
@@ -205,15 +214,16 @@ void TreeSearch::order_moves(const BughousePosition &position,
     bool gives_check =
         !move.is_drop() && move_gives_check(board, move, mover_colour);
 
-    if (gives_check || creates_mating_threat(board, move, mover_colour)) {
+    bool mating_threat = creates_mating_threat(board, move, mover_colour);
+    scored_move.mating_threat = mating_threat;
+
+    if (gives_check || mating_threat) {
       scored_move.score =
           CHECK_THREAT_SCORE + (gives_check ? MATING_THREAT_BONUS : 0);
       continue;
     }
 
-    int bonus = creates_mating_threat(board, move, mover_colour)
-                    ? MATING_THREAT_BONUS
-                    : 0;
+    int bonus = mating_threat ? MATING_THREAT_BONUS : 0;
 
     if (move == killer_.first(ply)) {
       scored_move.score = KILLER1_SCORE;
@@ -222,29 +232,20 @@ void TreeSearch::order_moves(const BughousePosition &position,
     } else if (!counter_move.is_none() && move == counter_move) {
       scored_move.score = COUNTER_MOVE_SCORE;
     } else if (move.is_drop()) {
-      Piece moved_piece = make_piece(mover_colour, move.drop_pt);
       const auto &table =
           in_check ? defensive_drop_history_ : attacking_drop_history_;
       int drop_safety = params_.see_enabled
                             ? SEE::see_drop_score(board, move.drop_pt, move.to)
                             : 0;
-      scored_move.score = (drop_safety < 0)
-                              ? LOSING_CAPTURE_BASE + drop_safety
-                              : table.score(moved_piece, move.to) + bonus;
+      scored_move.score =
+          (drop_safety < 0)
+              ? LOSING_CAPTURE_BASE + drop_safety
+              : table.score(scored_move.moved_piece, move.to) + bonus;
     } else {
-      Piece moved_piece =
-          move.is_drop()
-              ? make_piece(colour_of(context.root_player), move.drop_pt)
-              : board.piece_on(move.from);
-      scored_move.score = ordinary_history_.score(moved_piece, move.to);
+      scored_move.score =
+          ordinary_history_.score(scored_move.moved_piece, move.to);
     }
   }
-
-  // TODO: for each move select highest and search
-  std::sort(scored_moves.begin(), scored_moves.end(),
-            [](const ScoredMove &a, const ScoredMove &b) {
-              return a.score > b.score;
-            });
 }
 
 int TreeSearch::alpha_beta(BughousePosition &position,
@@ -269,6 +270,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
     return leaf_eval(position, context, alpha, beta, stop_token);
 
   int old_alpha = alpha;
+  int old_beta = beta;
   const TTEntry *tt_entry = nullptr;
 
   if (params_.tt_enabled) {
@@ -372,30 +374,22 @@ int TreeSearch::alpha_beta(BughousePosition &position,
   bool completed = true;
   int move_index = 0;
 
-  for (ScoredMove &scored_move : scored_moves) {
+  for (size_t move_index = 0; move_index < scored_moves.size(); move_index++) {
+    search_next_best(scored_moves, move_index);
+    ScoredMove &scored_move = scored_moves[move_index];
     Move move = scored_move.move;
-    bool capture = board.is_capture(move);
+    bool capture = scored_move.capture;
 
-    if (capture && params_.see_enabled) {
-      int see_score = SEE::see_score(board, move);
-      if (see_score < params_.see_prune_threshold) {
-        move_index++;
-        continue;
-      }
-    }
-
-    Piece moved_piece =
-        move.is_drop()
-            ? make_piece(colour_of(context.root_player), move.drop_pt)
-            : board.piece_on(move.from);
-
-    if (futility && move_index > 0 && !capture &&
-        !move_gives_check(board, move, colour_of(context.root_player)) &&
-        !creates_mating_threat(board, move, colour_of(context.root_player)) &&
-        futility_eval + margin <= alpha) {
-      move_index++;
+    if (capture && params_.see_enabled &&
+        scored_move.see_score < params_.see_prune_threshold)
       continue;
-    }
+
+    Piece moved_piece = scored_move.moved_piece;
+
+    if (futility && move_index > 0 && !capture && !move.is_drop() &&
+        !scored_move.gives_check && !scored_move.mating_threat &&
+        futility_eval + margin <= alpha)
+      continue;
 
     if (tt_entry && !tt_entry->best_move.is_none() &&
         move == tt_entry->best_move)
@@ -403,7 +397,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
     else if (move == killer_.first(ply) || move == killer_.second(ply))
       stats_.move_ordering_stats.killer_hits++;
     else if (capture)
-      (SEE::see_score(board, move) >= 0
+      (scored_move.see_score >= 0
            ? stats_.move_ordering_stats.winning_captures
            : stats_.move_ordering_stats.losing_captures)++;
     else
@@ -417,7 +411,6 @@ int TreeSearch::alpha_beta(BughousePosition &position,
                      context.comm_context, context.comm_hash);
 
     int score;
-
     DetailedMove child_prev{move, moved_piece};
 
     if (first_child) {
@@ -425,10 +418,12 @@ int TreeSearch::alpha_beta(BughousePosition &position,
                                 ply, is_pv, stop_token);
     } else {
       int reduction = 0;
-      if (is_reducible(position, context, move, capture, in_check, check))
-        reduction = lmr_reduction(depth, move_index, volatility);
+      if (is_reducible(move, capture, in_check, check,
+                       scored_move.mating_threat))
+        reduction =
+            lmr_reduction(depth, static_cast<int>(move_index), volatility);
       score = search_tail_move(position, next, child_prev, depth, alpha, beta,
-                               ply, reduction, is_pv, stop_token);
+                               ply, reduction, false, stop_token);
     }
 
     undo_move(position, context.root_player, move, undo);
@@ -449,7 +444,6 @@ int TreeSearch::alpha_beta(BughousePosition &position,
         update_quiet_heuristics(move, depth, ply, moved_piece, in_check);
         counter_move_.update(prev, move);
       }
-
       break;
     }
 
@@ -459,15 +453,15 @@ int TreeSearch::alpha_beta(BughousePosition &position,
     }
 
     first_child = false;
-    move_index++;
   }
 
   if (completed && params_.tt_enabled) {
-    TTBound bound = best <= old_alpha ? TTBound::UPPER
-                    : best >= beta    ? TTBound::LOWER
-                                      : TTBound::EXACT;
+    TTBound bound = best <= old_alpha  ? TTBound::UPPER
+                    : best >= old_beta ? TTBound::LOWER
+                                       : TTBound::EXACT;
     tt_.store(key, depth, score_to_tt(best, ply), best_move, bound);
   }
+
   return best;
 }
 
@@ -535,19 +529,20 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
 
   order_moves(working, context, DetailedMove{}, scored_moves, tt_entry, 0);
 
+  float volatility = evaluator_.volatility(working, context.root_player);
+
   int best = -INF_SCORE;
   bool first_child = true;
   bool searched = false;
   bool completed = true;
   int move_index = 0;
 
-  for (ScoredMove &scored_move : scored_moves) {
+  for (size_t move_index = 0; move_index < scored_moves.size(); move_index++) {
+    search_next_best(scored_moves, move_index);
+    ScoredMove &scored_move = scored_moves[move_index];
     Move move = scored_move.move;
-    bool capture = board.is_capture(move);
-    Piece moved_piece =
-        move.is_drop()
-            ? make_piece(colour_of(context.root_player), move.drop_pt)
-            : board.piece_on(move.from);
+    bool capture = scored_move.capture;
+    Piece moved_piece = scored_move.moved_piece;
 
     BughouseUndo undo = apply_move(working, context.root_player, move);
 
@@ -557,7 +552,6 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
                      context.comm_context, context.comm_hash);
 
     int score;
-
     DetailedMove child_prev{move, moved_piece};
 
     if (first_child) {
@@ -565,10 +559,10 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
                                 0, true, stop_token);
     } else {
       int reduction = 0;
-      if (is_reducible(working, context, move, capture, in_check, check))
+      if (is_reducible(move, capture, in_check, check,
+                       scored_move.mating_threat))
         reduction =
-            lmr_reduction(depth, move_index,
-                          evaluator_.volatility(working, context.root_player));
+            lmr_reduction(depth, static_cast<int>(move_index), volatility);
       score = search_tail_move(working, next, child_prev, depth, alpha, beta, 0,
                                reduction, false, stop_token);
     }
@@ -600,7 +594,6 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
     }
 
     first_child = false;
-    move_index++;
   }
 
   result.score =
@@ -616,7 +609,6 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
   result.completed = completed;
 
   stats_.depth_reached = depth;
-  stats_.nodes_by_depth.push_back(stats_.nodes);
   return result;
 }
 

@@ -101,7 +101,11 @@ EvalScore PocketEvaluator::evaluate(const EvalContext &context) const {
 
   const Pocket &opp_partner_pocket =
       bughouse.pockets[to_int(partner_of(next_player(bughouse.root_player)))];
-  EvalScore opp_partner_score = base_material_utility(opp_partner_pocket);
+
+  EvalScore opp_partner_raw = base_material_utility(opp_partner_pocket);
+  EvalScore opp_partner_score(
+      opp_partner_raw.mid_game() / POCKET_PARTNER_CONFIDENCE_DIVISOR,
+      opp_partner_raw.end_game() / POCKET_PARTNER_CONFIDENCE_DIVISOR);
 
   return score + partner_score - opp_partner_score;
 }

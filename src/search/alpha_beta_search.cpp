@@ -77,7 +77,7 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
                 drop_gives_check(board, m.drop_pt, m.to, mover_colour)));
     });
 
-    // SEE filtering, Delta pruning
+    // SEE filtering, (Delta pruning currently removed)
     if (params_.see_enabled) {
       std::erase_if(moves, [&](const Move &m) {
         if (m.is_drop())
@@ -85,10 +85,11 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
 
         SEE::Result see = SEE::see_result(board, m);
 
-        if (see.score < params_.see_prune_threshold)
-          return true;
-
-        return stand_pat + see.score + params_.delta_margin < alpha;
+        // if (see.score < params_.see_prune_threshold)
+        //   return true;
+        //
+        // return stand_pat + see.score + params_.delta_margin < alpha;
+        return see.score < params_.see_prune_threshold;
       });
     }
   }
