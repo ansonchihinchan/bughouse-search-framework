@@ -104,10 +104,27 @@ int BughouseEvaluator::evaluate(
   for (const auto &feature : features_)
     score += feature->evaluate(eval_context);
 
-  for (int b = 0; b < BOARD_NO; b++)
-    score +=
-        classical_.evaluate(position.boards[b], team_colour(root_player, b));
+  int own_board = board_of(root_player);
+  score += classical_.evaluate(eval_context.classical,
+                               team_colour(root_player, own_board));
 
+  int partner_board = 1 - own_board;
+  const Board &partner_board_ref = position.boards[partner_board];
+  Colour partner_colour = team_colour(root_player, partner_board);
+  int idx = static_cast<int>(partner_colour);
+
+  int partner_score;
+  if (cached_partner_valid_[idx] &&
+      cached_partner_hash_[idx] == partner_board_ref.hash) {
+    partner_score = cached_partner_score_[idx];
+  } else {
+    partner_score = classical_.evaluate(partner_board_ref, partner_colour);
+    cached_partner_hash_[idx] = partner_board_ref.hash;
+    cached_partner_score_[idx] = partner_score;
+    cached_partner_valid_[idx] = true;
+  }
+  score += partner_score;
+  
   return score.final(eval_context.classical.phase);
 }
 

@@ -34,6 +34,7 @@ bool should_stall(float stall_intent);
 
 struct CommunicationContext {
   PartnerContext partner;
+  std::array<PartnerContext, COLOUR_NO> partner_by_colour{};
   Message message;
   PredictionSummary prediction;
 };

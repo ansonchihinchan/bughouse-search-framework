@@ -32,7 +32,7 @@ public:
 
   int alpha_beta(BughousePosition &position, const SearchContext &context,
                  const DetailedMove &prev, int depth, int alpha, int beta,
-                 int ply, std::stop_token stop_token,
+                 int ply, bool is_pv, std::stop_token stop_token,
                  bool is_null_move = false);
 
   void new_search(const SearchLimits &limits);
@@ -44,13 +44,13 @@ protected:
   virtual int search_first_move(BughousePosition &position,
                                 const SearchContext &next,
                                 const DetailedMove &prev, int depth, int alpha,
-                                int beta, int ply,
+                                int beta, int ply, bool is_pv,
                                 std::stop_token stop_token) = 0;
 
   virtual int search_tail_move(BughousePosition &position,
                                const SearchContext &next,
                                const DetailedMove &prev, int depth, int alpha,
-                               int beta, int ply, int reduction,
+                               int beta, int ply, int reduction, bool is_pv,
                                std::stop_token stop_token) = 0;
 
   // Quiescence overrides only this to keep searching noisy moves
@@ -77,9 +77,8 @@ protected:
   virtual bool null_move_enabled() const { return params_.null_move_enabled; }
 
   virtual int lmr_reduction(int depth, int move_index, float volatility) const;
-  bool is_reducible(const BughousePosition &position,
-                    const SearchContext &context, Move move, bool capture,
-                    bool in_check, bool check) const;
+  bool is_reducible(Move move, bool capture, bool in_check, bool check,
+                    bool mating_threat) const;
 
   static constexpr int HALFMOVE_LIMIT = 100;
 

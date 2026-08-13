@@ -118,6 +118,12 @@ struct SearchParams {
 struct ScoredMove {
   Move move;
   int score = 0;
+  Piece moved_piece;
+  bool capture = false;
+  bool gives_check = false;
+  bool mating_threat = false;
+  int see_score = 0;
+  bool see_computed = false;
 };
 
 struct DetailedMove {

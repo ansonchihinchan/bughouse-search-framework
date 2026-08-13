@@ -23,4 +23,8 @@ public:
 private:
   ClassicalEvaluator classical_;
   std::vector<std::unique_ptr<BughouseFeature>> features_;
+
+  mutable std::array<uint64_t, COLOUR_NO> cached_partner_hash_{};
+  mutable std::array<int, COLOUR_NO> cached_partner_score_{};
+  mutable std::array<bool, COLOUR_NO> cached_partner_valid_{};
 };
