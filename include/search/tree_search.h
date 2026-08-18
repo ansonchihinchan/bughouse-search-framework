@@ -12,6 +12,7 @@
 #include <array>
 #include <bit>
 #include <chrono>
+#include <cstdint>
 #include <vector>
 
 // Shared for every depth-based search.
@@ -40,6 +41,9 @@ public:
 
   bool deadline_reached() const;
 
+  int evaluate_position(const BughousePosition &position,
+                        const SearchContext &context);
+
 protected:
   virtual int search_first_move(BughousePosition &position,
                                 const SearchContext &next,
@@ -60,8 +64,7 @@ protected:
     (void)alpha;
     (void)beta;
     (void)stop_token;
-    return evaluator_.evaluate(position, context.root_player, context.remaining,
-                               context.comm_context);
+    return evaluate_position(position, context);
   }
 
   virtual void order_moves(const BughousePosition &position,
@@ -77,7 +80,7 @@ protected:
   virtual bool null_move_enabled() const { return params_.null_move_enabled; }
 
   virtual int lmr_reduction(int depth, int move_index, float volatility) const;
-  bool is_reducible(Move move, bool capture, bool in_check, bool check,
+  bool is_reducible(bool capture, bool in_check, bool check,
                     bool mating_threat) const;
 
   static constexpr int HALFMOVE_LIMIT = 100;
@@ -98,6 +101,14 @@ protected:
   TranspositionTable &tt_;
   const SearchParams &params_;
   const Timer &timer_;
+
+  struct EvalCacheEntry {
+    uint64_t key = 0;
+    int score = 0;
+    bool valid = false;
+  };
+  static constexpr size_t EVAL_CACHE_SIZE = 1U << 16;
+  std::vector<EvalCacheEntry> eval_cache_{EVAL_CACHE_SIZE};
 };
 
 // TODO

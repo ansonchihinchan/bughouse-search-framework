@@ -3,6 +3,7 @@
 #include "game/movegen.h"
 #include "search/see.h"
 #include <algorithm>
+#include <cmath>
 
 int AlphaBetaSearch::search_first_move(BughousePosition &position,
                                        const SearchContext &next,
@@ -19,17 +20,16 @@ int AlphaBetaSearch::search_tail_move(BughousePosition &position,
                                       int alpha, int beta, int ply,
                                       int reduction, bool is_pv,
                                       std::stop_token stop_token) {
-  int score;
-  if (reduction > 0) {
-    score = -alpha_beta(position, next, prev, depth - 1 - reduction, -beta,
-                        -alpha, ply + 1, is_pv, stop_token);
-    if (score > alpha)
-      score = -alpha_beta(position, next, prev, depth - 1, -beta, -alpha,
-                          ply + 1, is_pv, stop_token);
-  } else {
-    score = -alpha_beta(position, next, prev, depth - 1, -beta, -alpha, ply + 1,
-                        is_pv, stop_token);
-  }
+  int score = -alpha_beta(position, next, prev, depth - 1 - reduction,
+                          -alpha - 1, -alpha, ply + 1, is_pv, stop_token);
+
+  if (reduction > 0 && score > alpha)
+    score = -alpha_beta(position, next, prev, depth - 1, -alpha - 1, -alpha,
+                        ply + 1, is_pv, stop_token);
+
+  if (score > alpha && score < beta)
+    score = -alpha_beta(position, next, prev, depth - 1, -beta, -alpha,
+                        ply + 1, is_pv, stop_token);
   return score;
 }
 
@@ -41,22 +41,22 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
   stats_.nodes++;
 
   if (stop_token.stop_requested() || deadline_reached())
-    return evaluator_.evaluate(position, context.root_player, context.remaining,
-                               context.comm_context);
+    return evaluate_position(position, context);
 
   const Board &board = position.boards[board_of(context.root_player)];
   bool in_check = board.is_in_check();
   Colour mover_colour = colour_of(context.root_player);
 
-  if (in_check && qply >= params_.quiescence_max_ply)
-    return evaluator_.evaluate(position, context.root_player, context.remaining,
-                               context.comm_context);
+  int max_qply = static_cast<int>(std::lround(
+      params_.quiescence_max_ply *
+      (1.0f - evaluator_.volatility(position, context.root_player))));
+  if (qply >= max_qply)
+    return evaluate_position(position, context);
 
   int stand_pat = 0;
 
   if (!in_check) {
-    stand_pat = evaluator_.evaluate(position, context.root_player,
-                                    context.remaining, context.comm_context);
+    stand_pat = evaluate_position(position, context);
 
     if (stand_pat >= beta)
       return stand_pat;
@@ -64,18 +64,25 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
     alpha = std::max(alpha, stand_pat);
   }
 
-  std::vector<Move> moves = generate_legal_moves(position, context.root_player);
+  std::vector<Move> moves;
 
   if (in_check) {
+    moves = generate_legal_moves(position, context.root_player);
     if (moves.empty())
       return -INF_SCORE + qply;
   } else {
-    // Keep only captures and forcing drops
+    moves = generate_pseudo_legal_moves(board);
     std::erase_if(moves, [&](const Move &m) {
-      return !((board.is_capture(m)) ||
-               (m.is_drop() &&
-                drop_gives_check(board, m.drop_pt, m.to, mover_colour)));
+      return !board.is_capture(m) || !board.is_legal(m);
     });
+
+    auto drops = generate_drop_moves(
+        board, position.pockets[to_int(context.root_player)]);
+    for (const Move &drop : drops) {
+      if (drop_gives_check(board, drop.drop_pt, drop.to, mover_colour) &&
+          board.is_legal(drop))
+        moves.push_back(drop);
+    }
 
     // SEE filtering, (Delta pruning currently removed)
     if (params_.see_enabled) {

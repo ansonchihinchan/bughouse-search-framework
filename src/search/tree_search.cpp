@@ -102,6 +102,21 @@ bool TreeSearch::deadline_reached() const {
   return timer_.should_abandon(stats_, limits_, start_time_);
 }
 
+int TreeSearch::evaluate_position(const BughousePosition &position,
+                                  const SearchContext &context) {
+  uint64_t key = position_hash(position) ^ context.comm_hash ^
+                 (0x9e3779b97f4a7c15ULL *
+                  (static_cast<uint64_t>(to_int(context.root_player)) + 1));
+  EvalCacheEntry &entry = eval_cache_[key & (EVAL_CACHE_SIZE - 1)];
+  if (entry.valid && entry.key == key)
+    return entry.score;
+
+  int score = evaluator_.evaluate(position, context.root_player,
+                                  context.remaining, context.comm_context);
+  entry = EvalCacheEntry{key, score, true};
+  return score;
+}
+
 void TreeSearch::age_history() {
   ordinary_history_.age();
   attacking_drop_history_.age();
@@ -118,6 +133,8 @@ void TreeSearch::new_search(const SearchLimits &limits) {
 
   killer_.clear();
   search_path_.clear();
+  for (EvalCacheEntry &entry : eval_cache_)
+    entry.valid = false;
 }
 
 void TreeSearch::end_search() {
@@ -152,9 +169,9 @@ int TreeSearch::lmr_reduction(int depth, int move_index,
   return std::clamp(static_cast<int>(reduction), 0, depth - 1);
 }
 
-bool TreeSearch::is_reducible(Move move, bool capture, bool in_check,
+bool TreeSearch::is_reducible(bool capture, bool in_check,
                               bool check, bool mating_threat) const {
-  return !(move.is_drop() || capture || in_check || check || mating_threat);
+  return !(capture || in_check || check || mating_threat);
 }
 
 int TreeSearch::futility_margin(int depth, float volatility) const {
@@ -213,6 +230,7 @@ void TreeSearch::order_moves(const BughousePosition &position,
 
     bool gives_check =
         !move.is_drop() && move_gives_check(board, move, mover_colour);
+    scored_move.gives_check = gives_check;
 
     bool mating_threat = creates_mating_threat(board, move, mover_colour);
     scored_move.mating_threat = mating_threat;
@@ -364,8 +382,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
   int margin = 0;
   if (futility) {
     margin = futility_margin(depth, volatility);
-    futility_eval = evaluator_.evaluate(
-        position, context.root_player, context.remaining, context.comm_context);
+    futility_eval = evaluate_position(position, context);
   }
 
   int best = -INF_SCORE;
@@ -386,7 +403,7 @@ int TreeSearch::alpha_beta(BughousePosition &position,
 
     Piece moved_piece = scored_move.moved_piece;
 
-    if (futility && move_index > 0 && !capture && !move.is_drop() &&
+    if (futility && move_index > 0 && !capture &&
         !scored_move.gives_check && !scored_move.mating_threat &&
         futility_eval + margin <= alpha)
       continue;
@@ -418,10 +435,11 @@ int TreeSearch::alpha_beta(BughousePosition &position,
                                 ply, is_pv, stop_token);
     } else {
       int reduction = 0;
-      if (is_reducible(move, capture, in_check, check,
+      if (is_reducible(capture, in_check, check,
                        scored_move.mating_threat))
         reduction =
-            lmr_reduction(depth, static_cast<int>(move_index), volatility);
+            lmr_reduction(depth, static_cast<int>(move_index),
+                          move.is_drop() ? 0.0f : volatility);
       score = search_tail_move(position, next, child_prev, depth, alpha, beta,
                                ply, reduction, false, stop_token);
     }
@@ -505,9 +523,7 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
   // checkmate, stalemate
   if (moves.empty()) {
     result.score =
-        in_check ? -INF_SCORE
-                 : evaluator_.evaluate(working, context.root_player,
-                                       context.remaining, context.comm_context);
+        in_check ? -INF_SCORE : evaluate_position(working, context);
     result.depth = depth;
     result.bound = TTBound::EXACT;
     return result;
@@ -526,6 +542,12 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
     scored_moves.push_back(ScoredMove{move, 0});
 
   const TTEntry *tt_entry = params_.tt_enabled ? tt_.probe(key) : nullptr;
+
+  if (params_.tt_enabled) {
+    stats_.tt_stats.probes++;
+    if (tt_entry)
+      stats_.tt_stats.hits++;
+  }
 
   order_moves(working, context, DetailedMove{}, scored_moves, tt_entry, 0);
 
@@ -559,10 +581,11 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
                                 0, true, stop_token);
     } else {
       int reduction = 0;
-      if (is_reducible(move, capture, in_check, check,
+      if (is_reducible(capture, in_check, check,
                        scored_move.mating_threat))
         reduction =
-            lmr_reduction(depth, static_cast<int>(move_index), volatility);
+            lmr_reduction(depth, static_cast<int>(move_index),
+                          move.is_drop() ? 0.0f : volatility);
       score = search_tail_move(working, next, child_prev, depth, alpha, beta, 0,
                                reduction, false, stop_token);
     }
@@ -597,18 +620,18 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
   }
 
   result.score =
-      searched ? best
-               : evaluator_.evaluate(working, context.root_player,
-                                     context.remaining, context.comm_context);
+      searched ? best : evaluate_position(working, context);
   result.bound = result.score <= old_alpha ? TTBound::UPPER
                  : result.score >= beta    ? TTBound::LOWER
                                            : TTBound::EXACT;
+  if (completed && params_.tt_enabled)
+    tt_.store(key, depth, score_to_tt(result.score, 0), result.best_move,
+              result.bound);
   if (!result.best_move.is_none())
     result.pv = extract_pv(position, context.root_player, tt_, depth,
                            context.comm_hash);
   result.completed = completed;
 
-  stats_.depth_reached = depth;
   return result;
 }
 
