@@ -30,7 +30,6 @@ protected:
         evaluator_.is_noisy(position, context.root_player))
       return quiescence(position, context, alpha, beta, 0, stop_token);
     else
-      return evaluator_.evaluate(position, context.root_player,
-                                 context.remaining, context.comm_context);
+      return evaluate_position(position, context);
   }
 };

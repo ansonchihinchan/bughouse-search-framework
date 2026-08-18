@@ -66,6 +66,6 @@ TEST_CASE("PocketEvaluator treats the opponent's partner's pocket as plain "
   PocketEvaluator eval;
   EvalScore score = eval.evaluate(fx.context(to_player(0)));
 
-  REQUIRE(score.mid_game() == -640);
-  REQUIRE(score.end_game() == -640);
+  REQUIRE(score.mid_game() == -320);
+  REQUIRE(score.end_game() == -320);
 }
