@@ -95,27 +95,48 @@ bool drop_gives_check(const Board &board, PieceType pt, Square to,
   Bitboard king_bb = board.bitboard_piece(make_piece(enemy, KING));
   if (!king_bb)
     return false;
+  Bitboard occ = board.bitboard_all();
+  return (piece_attacks(pt, colour, to, occ) & king_bb) != 0;
+}
+
+Bitboard DropCheckMasks::for_piece(PieceType pt) const {
+  switch (pt) {
+  case PAWN:
+    return pawn;
+  case KNIGHT:
+    return knight;
+  case BISHOP:
+    return bishop;
+  case ROOK:
+    return rook;
+  case QUEEN:
+    return queen;
+  default:
+    return 0;
+  }
+}
+
+DropCheckMasks drop_check_masks(const Board &board, Colour colour) {
+  DropCheckMasks masks;
+  Colour enemy = flip(colour);
+  Bitboard king_bb = board.bitboard_piece(make_piece(enemy, KING));
+  if (!king_bb)
+    return masks;
   Square ksq = static_cast<Square>(std::countr_zero(king_bb));
   Bitboard occ = board.bitboard_all();
+  Bitboard empty = ~occ;
 
-  switch (pt) {
-  case KNIGHT:
-    return (knight_attacks(to) & king_bb) != 0;
-  case BISHOP:
-    return (bishop_attacks(to, occ) & king_bb) != 0;
-  case ROOK:
-    return (rook_attacks(to, occ) & king_bb) != 0;
-  case QUEEN:
-    return ((bishop_attacks(to, occ) | rook_attacks(to, occ)) & king_bb) != 0;
-  case PAWN: {
-    int file_diff = std::abs(file_of(ksq) - file_of(to));
-    int rank_diff = rank_of(ksq) - rank_of(to);
-    int expected_rank_diff = (colour == WHITE) ? 1 : -1;
-    return file_diff == 1 && rank_diff == expected_rank_diff;
-  }
-  default:
-    return false;
-  }
+  masks.pawn = pawn_attacks(king_bb, enemy) & empty &
+               ~0xFF000000000000FFULL;
+  masks.knight = knight_attacks(ksq) & empty;
+  masks.bishop = bishop_attacks(ksq, occ) & empty;
+  masks.rook = rook_attacks(ksq, occ) & empty;
+  masks.queen = masks.bishop | masks.rook;
+  return masks;
+}
+
+Bitboard drop_check_squares(const Board &board, PieceType pt, Colour colour) {
+  return drop_check_masks(board, colour).for_piece(pt);
 }
 
 bool move_gives_check(const Board &board, Move move, Colour mover) {

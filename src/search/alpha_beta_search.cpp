@@ -3,6 +3,7 @@
 #include "game/movegen.h"
 #include "search/see.h"
 #include <algorithm>
+#include <bit>
 #include <cmath>
 
 int AlphaBetaSearch::search_first_move(BughousePosition &position,
@@ -76,12 +77,21 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
       return !board.is_capture(m) || !board.is_legal(m);
     });
 
-    auto drops = generate_drop_moves(
-        board, position.pockets[to_int(context.root_player)]);
-    for (const Move &drop : drops) {
-      if (drop_gives_check(board, drop.drop_pt, drop.to, mover_colour) &&
-          board.is_legal(drop))
-        moves.push_back(drop);
+    const Pocket &pocket =
+        position.pockets[to_int(context.root_player)];
+    DropCheckMasks checking = drop_check_masks(board, mover_colour);
+    for (int pt = PAWN; pt <= QUEEN; pt++) {
+      PieceType piece_type = static_cast<PieceType>(pt);
+      if (!pocket.contains(piece_type))
+        continue;
+      Bitboard checks = checking.for_piece(piece_type);
+      while (checks) {
+        Square to = static_cast<Square>(std::countr_zero(checks));
+        checks &= checks - 1;
+        Move drop = Move::drop(piece_type, to);
+        if (board.is_legal(drop))
+          moves.push_back(drop);
+      }
     }
 
     // SEE filtering, (Delta pruning currently removed)

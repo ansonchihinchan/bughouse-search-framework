@@ -21,15 +21,6 @@ int attackers_into_zone(const Board &board, Colour colour, Bitboard zone) {
   return attackers;
 }
 
-bool drop_threatens_king(const Board &board, PieceType pt, Colour mover,
-                         Square to) {
-  Bitboard enemy_king = board.bitboard_piece(make_piece(flip(mover), KING));
-  if (!enemy_king)
-    return false;
-  Bitboard occ = board.bitboard_all() | (1ULL << to);
-  return (piece_attacks(pt, mover, to, occ) & enemy_king) != 0;
-}
-
 int king_escape_squares(const Board &board, Colour king_colour,
                         Square exclude_sq, Bitboard checking_attacks) {
   Bitboard king_bb = board.bitboard_piece(make_piece(king_colour, KING));
@@ -213,25 +204,15 @@ int drop_check_readiness(const Board &board, const Pocket &pocket,
   if (pocket.empty())
     return 0;
 
-  Bitboard empty = ~board.bitboard_all();
+  DropCheckMasks checks = drop_check_masks(board, mover);
   int ready_types = 0;
 
   for (PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN}) {
     if (!pocket.contains(pt))
       continue;
 
-    Bitboard targets = empty;
-    if (pt == PAWN)
-      targets &= ~0xFF000000000000FFULL;
-    Bitboard t = targets;
-    while (t) {
-      Square sq = static_cast<Square>(std::countr_zero(t));
-      t &= t - 1;
-      if (drop_threatens_king(board, pt, mover, sq)) {
-        ready_types++;
-        break;
-      }
-    }
+    if (checks.for_piece(pt))
+      ready_types++;
   }
   return ready_types;
 }
