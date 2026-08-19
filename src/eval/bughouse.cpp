@@ -84,14 +84,30 @@ float board_exposure(const Board &board) {
 
 } // namespace
 
-BughouseEvaluator::BughouseEvaluator() {
+BughouseEvaluationConfig BughouseEvaluationConfig::independent() {
+  return {false, false, false};
+}
+
+BughouseEvaluationConfig BughouseEvaluationConfig::request() {
+  return {false, false, true};
+}
+
+BughouseEvaluationConfig BughouseEvaluationConfig::shared_value() {
+  return {true, true, false};
+}
+
+BughouseEvaluator::BughouseEvaluator(BughouseEvaluationConfig config)
+    : config_(config) {
   features_.push_back(std::make_unique<DropEvaluator>());
   features_.push_back(std::make_unique<ExchangeEvaluator>());
   features_.push_back(std::make_unique<InitiativeEvaluator>());
   features_.push_back(std::make_unique<KingDangerEvaluator>());
-  features_.push_back(std::make_unique<PartnerEvaluator>());
-  features_.push_back(std::make_unique<PocketEvaluator>());
-  features_.push_back(std::make_unique<PredictionEvaluator>());
+  if (config_.include_communication)
+    features_.push_back(std::make_unique<PartnerEvaluator>());
+  features_.push_back(
+      std::make_unique<PocketEvaluator>(config_.include_partner_pockets));
+  if (config_.include_communication)
+    features_.push_back(std::make_unique<PredictionEvaluator>());
 }
 
 int BughouseEvaluator::evaluate(
@@ -108,22 +124,24 @@ int BughouseEvaluator::evaluate(
   score += classical_.evaluate(eval_context.classical,
                                team_colour(root_player, own_board));
 
-  int partner_board = 1 - own_board;
-  const Board &partner_board_ref = position.boards[partner_board];
-  Colour partner_colour = team_colour(root_player, partner_board);
-  int idx = static_cast<int>(partner_colour);
+  if (config_.include_partner_board) {
+    int partner_board = 1 - own_board;
+    const Board &partner_board_ref = position.boards[partner_board];
+    Colour partner_colour = team_colour(root_player, partner_board);
+    int idx = static_cast<int>(partner_colour);
 
-  int partner_score;
-  if (cached_partner_valid_[idx] &&
-      cached_partner_hash_[idx] == partner_board_ref.hash) {
-    partner_score = cached_partner_score_[idx];
-  } else {
-    partner_score = classical_.evaluate(partner_board_ref, partner_colour);
-    cached_partner_hash_[idx] = partner_board_ref.hash;
-    cached_partner_score_[idx] = partner_score;
-    cached_partner_valid_[idx] = true;
+    int partner_score;
+    if (cached_partner_valid_[idx] &&
+        cached_partner_hash_[idx] == partner_board_ref.hash) {
+      partner_score = cached_partner_score_[idx];
+    } else {
+      partner_score = classical_.evaluate(partner_board_ref, partner_colour);
+      cached_partner_hash_[idx] = partner_board_ref.hash;
+      cached_partner_score_[idx] = partner_score;
+      cached_partner_valid_[idx] = true;
+    }
+    score += partner_score;
   }
-  score += partner_score;
   
   return score.final(eval_context.classical.phase);
 }
@@ -142,26 +160,29 @@ float BughouseEvaluator::volatility(const BughousePosition &position,
   init_attack_tables();
 
   int own_board = board_of(root_player);
-  int partner_board = 1 - own_board;
-
   float pocket =
       VOLATILITY_OWN_BOARD_WEIGHT *
           (pocket_weight_sum(position.pockets[to_int(root_player)]) +
            pocket_weight_sum(
-               position.pockets[to_int(next_player(root_player))])) +
-      VOLATILITY_PARTNER_BOARD_WEIGHT *
-          (pocket_weight_sum(
-               position.pockets[to_int(partner_of(root_player))]) +
-           pocket_weight_sum(
-               position.pockets[to_int(partner_of(next_player(root_player)))]));
+               position.pockets[to_int(next_player(root_player))]));
+  if (config_.include_partner_board) {
+    pocket += VOLATILITY_PARTNER_BOARD_WEIGHT *
+              (pocket_weight_sum(
+                   position.pockets[to_int(partner_of(root_player))]) +
+               pocket_weight_sum(position.pockets[to_int(
+                   partner_of(next_player(root_player)))]));
+  }
   pocket = std::clamp(pocket, 0.f, 1.f);
 
   float exposure =
-      std::clamp(std::max(VOLATILITY_OWN_BOARD_WEIGHT *
-                              board_exposure(position.boards[own_board]),
-                          VOLATILITY_PARTNER_BOARD_WEIGHT *
-                              board_exposure(position.boards[partner_board])),
-                 0.f, 1.f);
+      VOLATILITY_OWN_BOARD_WEIGHT * board_exposure(position.boards[own_board]);
+  if (config_.include_partner_board) {
+    int partner_board = 1 - own_board;
+    exposure = std::max(
+        exposure, VOLATILITY_PARTNER_BOARD_WEIGHT *
+                      board_exposure(position.boards[partner_board]));
+  }
+  exposure = std::clamp(exposure, 0.f, 1.f);
 
   return std::clamp(pocket + VOLATILITY_EXPOSURE_SCALE * exposure * pocket, 0.f,
                     1.f);

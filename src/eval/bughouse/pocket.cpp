@@ -89,6 +89,9 @@ EvalScore PocketEvaluator::evaluate(const EvalContext &context) const {
       pocket_utility(bughouse.own_pocket(), openness, their_exposure) -
       pocket_utility(bughouse.opp_pocket(), openness, our_exposure);
 
+  if (!include_partner_pockets_)
+    return score;
+
   const PartnerContext &partner = context.communication.partner;
   int partner_exposure = std::clamp(static_cast<int>(partner.king_danger), 0,
                                     PARTNER_KING_DANGER_CLAMP);
