@@ -1,8 +1,10 @@
 #include <catch2/catch_all.hpp>
 
+#include "game/attacks.h"
 #include "game/movegen.h"
 #include "game/pocket.h"
 #include <algorithm>
+#include <array>
 
 namespace {
 bool contains_move(const std::vector<Move> &moves, Move m) {
@@ -201,6 +203,31 @@ TEST_CASE("generate_pseudo_legal_moves with a pocket appends legal drop moves",
   p.add(QUEEN);
   auto moves = generate_pseudo_legal_moves(b, &p);
   REQUIRE(contains_move(moves, Move::drop(QUEEN, to_square(4, 3))));
+}
+
+TEST_CASE("drop_check_squares exactly matches generated checking drops",
+          "[movegen][drops][attacks]") {
+  const std::array<std::string, 4> fens{
+      "r1bqk2r/1ppp1ppp/p1n2n2/4p3/B3P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 5",
+      "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1",
+      "4k3/pppppppp/8/8/8/8/PPPPPPPP/4K3 w - - 0 1",
+      "8/8/8/3k4/8/4K3/8/8 w - - 0 1"};
+
+  for (const std::string &fen : fens) {
+    Board board(fen);
+    for (Colour mover : {WHITE, BLACK}) {
+      for (PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN}) {
+        Pocket pocket;
+        pocket.add(pt);
+        Bitboard generated = 0;
+        for (const Move &move : generate_drop_moves(board, pocket)) {
+          if (drop_gives_check(board, pt, move.to, mover))
+            generated |= 1ULL << move.to;
+        }
+        REQUIRE(drop_check_squares(board, pt, mover) == generated);
+      }
+    }
+  }
 }
 
 TEST_CASE("perft(1) from the start position equals 20", "[movegen][perft]") {

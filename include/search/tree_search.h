@@ -107,7 +107,7 @@ protected:
     int score = 0;
     bool valid = false;
   };
-  static constexpr size_t EVAL_CACHE_SIZE = 1U << 16;
+  static constexpr size_t EVAL_CACHE_SIZE = 1U << 20;
   std::vector<EvalCacheEntry> eval_cache_{EVAL_CACHE_SIZE};
 };
 

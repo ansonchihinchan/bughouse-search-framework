@@ -6,9 +6,19 @@
 #include <memory>
 #include <vector>
 
+struct BughouseEvaluationConfig {
+  bool include_partner_board = true;
+  bool include_partner_pockets = true;
+  bool include_communication = true;
+
+  static BughouseEvaluationConfig independent();
+  static BughouseEvaluationConfig request();
+  static BughouseEvaluationConfig shared_value();
+};
+
 class BughouseEvaluator : public Evaluator {
 public:
-  BughouseEvaluator();
+  explicit BughouseEvaluator(BughouseEvaluationConfig config = {});
 
   int evaluate(const BughousePosition &position, PlayerId root_player,
                const std::array<int64_t, PLAYER_NO> &remaining,
@@ -21,6 +31,7 @@ public:
                    PlayerId root_player) const override;
 
 private:
+  BughouseEvaluationConfig config_;
   ClassicalEvaluator classical_;
   std::vector<std::unique_ptr<BughouseFeature>> features_;
 

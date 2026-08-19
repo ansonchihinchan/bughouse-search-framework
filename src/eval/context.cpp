@@ -14,15 +14,6 @@ namespace {
 constexpr float DANGER_THRESHOLD = 0.f;
 constexpr float STALL_THRESHOLD = 0.35f;
 constexpr float STALL_MATERIAL_UNIT = 550.f;
-
-uint64_t hash_combine(uint64_t seed, uint64_t value) {
-  seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
-  return seed;
-}
-
-uint64_t hash_float(float value) {
-  return static_cast<uint64_t>(std::bit_cast<uint32_t>(value));
-}
 } // namespace
 
 bool is_dangerous(const Board &board, int phase) {

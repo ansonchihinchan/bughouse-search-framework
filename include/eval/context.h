@@ -5,6 +5,8 @@
 #include "game/bughouse.h"
 #include "game/types.h"
 #include <array>
+#include <bit>
+#include <cstdint>
 
 // TODO
 struct PredictionSummary {
@@ -23,7 +25,7 @@ struct PredictionSummary {
 struct PartnerContext {
   // board-derived
   int material_balance = 0;
-  int king_danger = 0.f;
+  int king_danger = 0;
   int phase = 0;
 
   float stall_intent = 0.f;
@@ -49,5 +51,14 @@ PredictionSummary make_prediction_summary(const BughousePosition &position,
 CommunicationContext
 make_communication_context(const BughousePosition &position,
                            PlayerId root_player, const Channel &channel);
+
+inline uint64_t hash_combine(uint64_t seed, uint64_t value) {
+  seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+  return seed;
+}
+
+inline uint64_t hash_float(float value) {
+  return static_cast<uint64_t>(std::bit_cast<uint32_t>(value));
+}
 
 uint64_t communication_hash(const CommunicationContext &context);

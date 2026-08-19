@@ -16,39 +16,16 @@ struct DropCheckCounts {
   int queen = 0;
 };
 
-int pawn_drop_check_squares(Square ksq, Colour attacker_colour, Bitboard occ) {
-  int kfile = file_of(ksq);
-  int krank = rank_of(ksq);
-
-  int src_rank = (attacker_colour == WHITE) ? krank - 1 : krank + 1;
-  if (src_rank <= 0 || src_rank >= 7)
-    return 0;
-
-  int count = 0;
-  for (int df : {-1, 1}) {
-    int src_file = kfile + df;
-    if (src_file < 0 || src_file > 7)
-      continue;
-    Square src = to_square(src_file, src_rank);
-    if (!(occ & (1ULL << src)))
-      count++;
-  }
-  return count;
-}
-
-DropCheckCounts compute_drop_check_squares(Square ksq, Colour attacker_colour,
-                                           Bitboard occ) {
+DropCheckCounts compute_drop_check_squares(const Board &board,
+                                           Colour attacker_colour) {
   DropCheckCounts counts;
+  DropCheckMasks masks = drop_check_masks(board, attacker_colour);
 
-  counts.pawn = pawn_drop_check_squares(ksq, attacker_colour, occ);
-  counts.knight = std::popcount(knight_attacks(ksq) & ~occ);
-
-  Bitboard bishop_reach = bishop_attacks(ksq, occ) & ~occ;
-  Bitboard rook_reach = rook_attacks(ksq, occ) & ~occ;
-
-  counts.bishop = std::popcount(bishop_reach);
-  counts.rook = std::popcount(rook_reach);
-  counts.queen = std::popcount(bishop_reach | rook_reach);
+  counts.pawn = std::popcount(masks.pawn);
+  counts.knight = std::popcount(masks.knight);
+  counts.bishop = std::popcount(masks.bishop);
+  counts.rook = std::popcount(masks.rook);
+  counts.queen = std::popcount(masks.queen);
 
   return counts;
 }
@@ -83,9 +60,7 @@ int weighted_squares(int square_count, PieceType pt, const Pocket &pocket,
 EvalScore king_drop_danger(const Board &board, Square ksq, Colour king_colour,
                            Colour attacker_colour,
                            const Pocket &attacker_pocket) {
-  Bitboard occ = board.bitboard_all();
-  DropCheckCounts counts =
-      compute_drop_check_squares(ksq, attacker_colour, occ);
+  DropCheckCounts counts = compute_drop_check_squares(board, attacker_colour);
 
   int mid = 0, end = 0;
   for (auto [count, pt] :

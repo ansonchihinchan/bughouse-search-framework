@@ -104,9 +104,8 @@ bool TreeSearch::deadline_reached() const {
 
 int TreeSearch::evaluate_position(const BughousePosition &position,
                                   const SearchContext &context) {
-  uint64_t key = position_hash(position) ^ context.comm_hash ^
-                 (0x9e3779b97f4a7c15ULL *
-                  (static_cast<uint64_t>(to_int(context.root_player)) + 1));
+  uint64_t key = hash_combine(hash_combine(position_hash(position), context.comm_hash),
+                              static_cast<uint64_t>(to_int(context.root_player)+ 1));
   EvalCacheEntry &entry = eval_cache_[key & (EVAL_CACHE_SIZE - 1)];
   if (entry.valid && entry.key == key)
     return entry.score;
