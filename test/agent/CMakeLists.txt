@@ -4,6 +4,9 @@ include(Catch)
 
 add_executable(agent_tests
     test_self_play.cpp
+    test_replay.cpp
+    test_round_robin.cpp
+    test_observer.cpp
     test_temporal.cpp
     test_tournament.cpp
     test_types.cpp

@@ -1,23 +1,10 @@
 #include "agent/tournament.h"
+#include "agent/observer.h"
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
 
 namespace {
-std::string_view agent_type_name(AgentType type) {
-  switch (type) {
-  case AgentType::Independent:
-    return "independent";
-  case AgentType::Request:
-    return "request";
-  case AgentType::SharedValue:
-    return "shared_value";
-  case AgentType::Sacrifice:
-    return "sacrifice";
-  }
-  return "unknown";
-}
-
 std::string_view search_name(SearchAlgorithm algorithm) {
   switch (algorithm) {
   case SearchAlgorithm::AlphaBeta:
@@ -94,6 +81,12 @@ void add_to_summary(TournamentSummary &summary,
       record.result.agent_metrics.sacrifices_accepted;
   summary.actual_sacrifice_uses +=
       record.result.accepted_sacrifice_transfers_used;
+  summary.coordination_opportunities +=
+      record.result.coordination_opportunities;
+  summary.coordinated_responses += record.result.coordinated_responses;
+  summary.synchrony_credit += record.result.synchrony_credit;
+  summary.total_drops += record.result.total_drops;
+  summary.wasted_drops += record.result.wasted_drops;
 }
 
 std::string pocket_text(const BughousePosition &position) {
@@ -145,6 +138,17 @@ std::string agent_config_text(const AgentConfig &config) {
 }
 } // namespace
 
+double TournamentSummary::synchrony_score() const {
+  if (!coordination_opportunities)
+    return 0.0;
+  return static_cast<double>(synchrony_credit) /
+         (COORDINATION_WINDOW_EVENTS * coordination_opportunities);
+}
+
+double TournamentSummary::wasted_drop_rate() const {
+  return total_drops ? static_cast<double>(wasted_drops) / total_drops : 0.0;
+}
+
 uint64_t tournament_matchup_identity(const ExperimentConfig &matchup) {
   uint64_t identity = 0;
   for (int player = 0; player < PLAYER_NO; player++)
@@ -169,6 +173,8 @@ TournamentResult TournamentRunner::run(const TournamentConfig &config,
   TournamentResult tournament;
   tournament.config = config;
   tournament.games.reserve(config.game_count);
+  if (config.observer)
+    config.observer->on_tournament_start(config);
 
   for (size_t game_index = 0; game_index < config.game_count; game_index++) {
     if (stop_token.stop_requested())
@@ -180,8 +186,11 @@ TournamentResult TournamentRunner::run(const TournamentConfig &config,
     AgentStrategyExperiment experiment(std::move(game_experiment));
     SelfPlayRunner game_runner(experiment);
     BughouseState game = config.initial_state;
+    SelfPlayConfig self_play_config = config.self_play;
+    if (config.observer)
+      self_play_config.observer = config.observer;
     SelfPlayResult self_play =
-        game_runner.run(game, config.self_play, stop_token);
+        game_runner.run(game, self_play_config, stop_token);
 
     TournamentGameRecord record;
     record.game_index = game_index;
@@ -189,8 +198,12 @@ TournamentResult TournamentRunner::run(const TournamentConfig &config,
     record.winning_team = winning_team(self_play.game_result);
     record.result = std::move(self_play);
     add_to_summary(tournament.summary, record);
+    if (config.observer)
+      config.observer->on_game_end(record, tournament.summary);
     tournament.games.push_back(std::move(record));
   }
+  if (config.observer)
+    config.observer->on_tournament_end(tournament);
   return tournament;
 }
 
@@ -209,7 +222,9 @@ void write_tournament_csv(std::ostream &out, const TournamentResult &result) {
          "strategy_requests,fulfilled_requests,piece_transfers,"
          "sacrifice_attempts,sacrifices_accepted,modeled_transfers,"
          "modeled_partner_uses,accepted_sacrifice_transfers,"
-         "actual_partner_uses,successful_temporal_sacrifices\n";
+         "actual_partner_uses,successful_temporal_sacrifices,"
+         "coordination_opportunities,coordinated_responses,synchrony_credit,"
+         "synchrony_score,total_drops,wasted_drops,wasted_drop_rate\n";
 
   const TournamentConfig &config = result.config;
   for (const TournamentGameRecord &game : result.games) {
@@ -246,6 +261,10 @@ void write_tournament_csv(std::ostream &out, const TournamentResult &result) {
         << r.agent_metrics.temporal_partner_uses << ','
         << r.accepted_sacrifice_transfers << ','
         << r.accepted_sacrifice_transfers_used << ','
-        << r.successful_temporal_sacrifices << '\n';
+        << r.successful_temporal_sacrifices << ','
+        << r.coordination_opportunities << ',' << r.coordinated_responses << ','
+        << r.synchrony_credit << ',' << r.synchrony_score << ','
+        << r.total_drops << ',' << r.wasted_drops << ',' << r.wasted_drop_rate
+        << '\n';
   }
 }

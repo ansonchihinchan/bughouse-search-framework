@@ -116,6 +116,20 @@ private:
 };
 } // namespace
 
+std::string_view agent_type_name(AgentType type) {
+  switch (type) {
+  case AgentType::Independent:
+    return "independent";
+  case AgentType::Request:
+    return "request";
+  case AgentType::SharedValue:
+    return "shared_value";
+  case AgentType::Sacrifice:
+    return "sacrifice";
+  }
+  return "unknown";
+}
+
 Agent::Agent(AgentConfig config, std::unique_ptr<Evaluator> evaluator)
     : config_(std::move(config)), evaluator_(std::move(evaluator)),
       tt_(config_.transposition_table_mb),

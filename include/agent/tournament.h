@@ -7,11 +7,14 @@
 #include <stop_token>
 #include <vector>
 
+class TournamentObserver;
+
 struct TournamentConfig {
   ExperimentConfig matchup{};
   BughouseState initial_state{};
   SelfPlayConfig self_play{};
   size_t game_count = 1;
+  TournamentObserver *observer = nullptr;
 };
 
 struct TournamentGameRecord {
@@ -32,6 +35,14 @@ struct TournamentSummary {
   size_t requests_fulfilled = 0;
   size_t sacrifices_accepted = 0;
   size_t actual_sacrifice_uses = 0;
+  size_t coordination_opportunities = 0;
+  size_t coordinated_responses = 0;
+  size_t synchrony_credit = 0;
+  size_t total_drops = 0;
+  size_t wasted_drops = 0;
+
+  double synchrony_score() const;
+  double wasted_drop_rate() const;
 };
 
 struct TournamentResult {

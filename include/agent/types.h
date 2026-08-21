@@ -14,6 +14,8 @@
 
 enum class AgentType { Independent, Request, SharedValue, Sacrifice };
 
+std::string_view agent_type_name(AgentType type);
+
 enum class SearchAlgorithm { AlphaBeta, PVS, NullMove };
 
 struct AgentConfig {

@@ -21,3 +21,6 @@ add_subdirectory(test/eval)
 add_subdirectory(test/agent)
 add_subdirectory(test/communication)
 add_subdirectory(bench)
+
+add_executable(bughouse main.cpp)
+target_link_libraries(bughouse PRIVATE agent)

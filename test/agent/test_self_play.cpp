@@ -1,6 +1,8 @@
 #include <catch2/catch_all.hpp>
 
+#include "agent/observer.h"
 #include "agent/self_play.h"
+#include "eval/bughouse.h"
 #include <string>
 
 namespace {
@@ -45,6 +47,38 @@ BughouseState causal_sacrifice_game() {
   game.history = {RepetitionNode{position_hash(game.position), 0, 0}};
   return game;
 }
+
+class ClockObserver : public Observer {
+public:
+  void on_game_start(const BughouseState &state) override {
+    initial = state.clock.time_ms;
+  }
+
+  void on_ply(const ReplayEvent &, const BughouseState &state) override {
+    after_ply.push_back(state.clock.time_ms);
+  }
+
+  std::array<int64_t, PLAYER_NO> initial{};
+  std::vector<std::array<int64_t, PLAYER_NO>> after_ply;
+};
+
+class ClockProbeAgent : public Agent {
+public:
+  ClockProbeAgent()
+      : Agent(AgentConfig{}, std::make_unique<BughouseEvaluator>(
+                                 BughouseEvaluationConfig::independent())) {}
+
+  AgentType type() const override { return AgentType::Independent; }
+  std::string_view name() const override { return "clock_probe"; }
+  std::vector<std::array<int64_t, PLAYER_NO>> snapshots;
+
+protected:
+  SearchResult select_move(const BughouseState &, const SearchContext &context,
+                           const SearchLimits &, std::stop_token) override {
+    snapshots.push_back(context.remaining);
+    return {};
+  }
+};
 } // namespace
 
 TEST_CASE("self-play schedules all four agents and applies legal moves",
@@ -211,4 +245,85 @@ TEST_CASE("self-play flags deterministically before an unaffordable move",
   REQUIRE(result.game_result == GameResult::TEAM_B_WINS);
   REQUIRE(result.plies == 0);
   REQUIRE(result.final_clocks_ms[0] == 0);
+}
+
+TEST_CASE(
+    "self-play applies deterministic cost and increment to only the actor",
+    "[agent][self_play][clock][regression]") {
+  AgentStrategyExperiment experiment(independent_roster());
+  SelfPlayRunner runner(experiment);
+  BughouseState game;
+  game.clock.set(60000, 500);
+  ClockObserver observer;
+  SelfPlayConfig config = shallow_game(1);
+  config.simulated_move_cost_ms = 3'000;
+  config.observer = &observer;
+
+  SelfPlayResult result = runner.run(game, config);
+
+  REQUIRE(observer.initial ==
+          std::array<int64_t, PLAYER_NO>{60000, 60000, 60000, 60000});
+  REQUIRE(observer.after_ply.size() == 1);
+  REQUIRE(observer.after_ply[0] ==
+          std::array<int64_t, PLAYER_NO>{57500, 60000, 60000, 60000});
+  REQUIRE(result.final_clocks_ms == observer.after_ply[0]);
+  REQUIRE(result.replay.events[0].clocks_after_ms == observer.after_ply[0]);
+}
+
+TEST_CASE("self-play clocks reflect unequal move counts without wall time",
+          "[agent][self_play][clock][determinism]") {
+  auto run = [] {
+    AgentStrategyExperiment experiment(independent_roster(77));
+    SelfPlayRunner runner(experiment);
+    BughouseState game;
+    game.clock.set(60000, 0);
+    SelfPlayConfig config = shallow_game(3);
+    config.simulated_move_cost_ms = 2000;
+    return runner.run(game, config);
+  };
+
+  SelfPlayResult first = run();
+  SelfPlayResult second = run();
+  const std::array<int64_t, PLAYER_NO> expected{58000, 58000, 60000, 58000};
+  REQUIRE(first.moves_by_player == std::array<size_t, PLAYER_NO>{1, 1, 0, 1});
+  REQUIRE(first.final_clocks_ms == expected);
+  REQUIRE(second.final_clocks_ms == expected);
+}
+
+TEST_CASE("observer callbacks cannot change authoritative self-play clocks",
+          "[agent][self_play][clock][observer]") {
+  AgentStrategyExperiment plain_experiment(independent_roster(88));
+  AgentStrategyExperiment observed_experiment(independent_roster(88));
+  SelfPlayRunner plain_runner(plain_experiment);
+  SelfPlayRunner observed_runner(observed_experiment);
+  BughouseState plain_game;
+  BughouseState observed_game;
+  ClockObserver observer;
+  SelfPlayConfig plain_config = shallow_game(4);
+  plain_config.simulated_move_cost_ms = 2500;
+  SelfPlayConfig observed_config = plain_config;
+  observed_config.observer = &observer;
+
+  SelfPlayResult plain = plain_runner.run(plain_game, plain_config);
+  SelfPlayResult observed = observed_runner.run(observed_game, observed_config);
+
+  REQUIRE(observed.final_clocks_ms == plain.final_clocks_ms);
+  REQUIRE(observed_game.clock.time_ms == plain_game.clock.time_ms);
+  REQUIRE(observed_game.position.boards == plain_game.position.boards);
+}
+
+TEST_CASE("Agent choose_move snapshots the current authoritative clocks",
+          "[agent][self_play][clock][context]") {
+  ClockProbeAgent agent;
+  BughouseState game;
+  game.clock.set(60000, 0);
+  agent.choose_move(game, to_player(0), SearchLimits{}, {});
+  game.clock.time_ms = {57500, 60000, 55000, 59250};
+  agent.choose_move(game, to_player(1), SearchLimits{}, {});
+
+  REQUIRE(agent.snapshots.size() == 2);
+  REQUIRE(agent.snapshots[0] ==
+          std::array<int64_t, PLAYER_NO>{60000, 60000, 60000, 60000});
+  REQUIRE(agent.snapshots[1] ==
+          std::array<int64_t, PLAYER_NO>{57500, 60000, 55000, 59250});
 }
