@@ -60,7 +60,7 @@ Bitboard pinned_pieces(const Board &board, Colour colour) {
           if (own & bit)
             first_blocker = static_cast<Square>(cur);
           else
-            return; // enemy piece blocks the ray first -- no pin here
+            return;
         } else {
           if (relevant_sliders & bit)
             pinned |= 1ULL << first_blocker;

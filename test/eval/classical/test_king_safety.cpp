@@ -44,7 +44,7 @@ TEST_CASE("KingSafetyEvaluator penalises attackers reaching into the king's "
 
   Board board;
   // Black queen on e5 attacks down the e-file into White's king zone
-  // Hits e2 and (being blocked by the king) e1 -- 2 squares.
+  // Hits e2 and (being blocked by the king) e1
   board.load_fen("4k3/8/8/4q3/8/8/8/4K3 w - - 0 1");
 
   int score = eval.evaluate(make_classical_context(board)).mid_game();

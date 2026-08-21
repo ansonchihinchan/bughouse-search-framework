@@ -313,7 +313,7 @@ BoardUndo Board::make_move(Move move) {
       move.type == EN_PASSANT)
     halfMove = 0;
   else
-    ++halfMove;
+    halfMove++;
 
   sideToMove = flip(sideToMove);
   hash ^= Zobrist::side;
