@@ -83,7 +83,7 @@ GameResult TemporalScheduler::advance_clocks(TemporalState &state,
 
 bool TemporalScheduler::apply_event(TemporalState &state, PlayerId actor,
                                     Move move, TemporalTrace &trace) const {
-  if (board_of(actor) < 0 || board_of(actor) >= BOARD_NO ||
+  if (board_of(actor) == NO_PLAYER || board_of(actor) >= BOARD_NO ||
       actor !=
           player_on_board(board_of(actor),
                           state.position.boards[board_of(actor)].sideToMove) ||
