@@ -104,8 +104,9 @@ bool TreeSearch::deadline_reached() const {
 
 int TreeSearch::evaluate_position(const BughousePosition &position,
                                   const SearchContext &context) {
-  uint64_t key = hash_combine(hash_combine(position_hash(position), context.comm_hash),
-                              static_cast<uint64_t>(to_int(context.root_player)+ 1));
+  uint64_t key =
+      hash_combine(hash_combine(position_hash(position), context.comm_hash),
+                   static_cast<uint64_t>(to_int(context.root_player) + 1));
   EvalCacheEntry &entry = eval_cache_[key & (EVAL_CACHE_SIZE - 1)];
   if (entry.valid && entry.key == key)
     return entry.score;
@@ -168,8 +169,8 @@ int TreeSearch::lmr_reduction(int depth, int move_index,
   return std::clamp(static_cast<int>(reduction), 0, depth - 1);
 }
 
-bool TreeSearch::is_reducible(bool capture, bool in_check,
-                              bool check, bool mating_threat) const {
+bool TreeSearch::is_reducible(bool capture, bool in_check, bool check,
+                              bool mating_threat) const {
   return !(capture || in_check || check || mating_threat);
 }
 
@@ -402,9 +403,8 @@ int TreeSearch::alpha_beta(BughousePosition &position,
 
     Piece moved_piece = scored_move.moved_piece;
 
-    if (futility && move_index > 0 && !capture &&
-        !scored_move.gives_check && !scored_move.mating_threat &&
-        futility_eval + margin <= alpha)
+    if (futility && move_index > 0 && !capture && !scored_move.gives_check &&
+        !scored_move.mating_threat && futility_eval + margin <= alpha)
       continue;
 
     if (tt_entry && !tt_entry->best_move.is_none() &&
@@ -434,11 +434,9 @@ int TreeSearch::alpha_beta(BughousePosition &position,
                                 ply, is_pv, stop_token);
     } else {
       int reduction = 0;
-      if (is_reducible(capture, in_check, check,
-                       scored_move.mating_threat))
-        reduction =
-            lmr_reduction(depth, static_cast<int>(move_index),
-                          move.is_drop() ? 0.0f : volatility);
+      if (is_reducible(capture, in_check, check, scored_move.mating_threat))
+        reduction = lmr_reduction(depth, static_cast<int>(move_index),
+                                  move.is_drop() ? 0.0f : volatility);
       score = search_tail_move(position, next, child_prev, depth, alpha, beta,
                                ply, reduction, false, stop_token);
     }
@@ -521,8 +519,7 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
 
   // checkmate, stalemate
   if (moves.empty()) {
-    result.score =
-        in_check ? -INF_SCORE : evaluate_position(working, context);
+    result.score = in_check ? -INF_SCORE : evaluate_position(working, context);
     result.depth = depth;
     result.bound = TTBound::EXACT;
     return result;
@@ -580,11 +577,9 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
                                 0, true, stop_token);
     } else {
       int reduction = 0;
-      if (is_reducible(capture, in_check, check,
-                       scored_move.mating_threat))
-        reduction =
-            lmr_reduction(depth, static_cast<int>(move_index),
-                          move.is_drop() ? 0.0f : volatility);
+      if (is_reducible(capture, in_check, check, scored_move.mating_threat))
+        reduction = lmr_reduction(depth, static_cast<int>(move_index),
+                                  move.is_drop() ? 0.0f : volatility);
       score = search_tail_move(working, next, child_prev, depth, alpha, beta, 0,
                                reduction, false, stop_token);
     }
@@ -618,8 +613,7 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
     first_child = false;
   }
 
-  result.score =
-      searched ? best : evaluate_position(working, context);
+  result.score = searched ? best : evaluate_position(working, context);
   result.bound = result.score <= old_alpha ? TTBound::UPPER
                  : result.score >= beta    ? TTBound::LOWER
                                            : TTBound::EXACT;

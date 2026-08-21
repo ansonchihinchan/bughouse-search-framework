@@ -1,6 +1,8 @@
 add_library(agent
     experiment.cpp
     self_play.cpp
+    temporal.cpp
+    tournament.cpp
     types.cpp
 )
 

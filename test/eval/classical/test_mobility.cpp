@@ -14,8 +14,7 @@ TEST_CASE("MobilityEvaluator scores a bare-kings position as zero",
   REQUIRE(eval.evaluate(ctx).mid_game() == 0);
 }
 
-TEST_CASE("MobilityEvaluator only counts knights, bishops, rooks and queens "
-          "-- not pawns or kings",
+TEST_CASE("MobilityEvaluator only counts knights, bishops, rooks and queens",
           "[eval][mobility]") {
   Board board;
   board.load_fen("4k3/8/4P3/8/8/8/8/4K3 w - - 0 1"); // lone pawn only

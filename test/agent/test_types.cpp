@@ -48,6 +48,11 @@ TEST_CASE("agent strategy factory selects each core strategy",
   auto shared = make_agent(config);
   REQUIRE(shared->type() == AgentType::SharedValue);
   REQUIRE(shared->name() == "shared_value");
+
+  config.type = AgentType::Sacrifice;
+  auto sacrifice = make_agent(config);
+  REQUIRE(sacrifice->type() == AgentType::Sacrifice);
+  REQUIRE(sacrifice->name() == "sacrifice");
 }
 
 TEST_CASE("request strategy requires an explicit communication channel",
@@ -141,6 +146,22 @@ TEST_CASE("request messages identify their sender and resulting move number",
   REQUIRE(output.outgoing_message->sender == to_player(1));
   REQUIRE(output.outgoing_message->move_no == before_move_no + 1);
   REQUIRE(channel.latest(to_player(1)).move_no == before_move_no + 1);
+}
+
+TEST_CASE("request agent forwards clock context to communication generation",
+          "[agent][strategy][request][communication]") {
+  BughouseState game;
+  game.clock.time_ms[to_int(to_player(2))] = 30'000;
+  game.clock.time_ms[to_int(to_player(3))] = 5'000;
+
+  Channel channel;
+  AgentConfig config;
+  config.type = AgentType::Request;
+  auto request = make_agent(config, &channel);
+  AgentOutput output = decide(*request, game, to_player(0));
+
+  REQUIRE(output.outgoing_message);
+  REQUIRE(output.outgoing_message->strat_request.strat == StrategyType::Flag);
 }
 
 TEST_CASE("request-aware evaluator observes a delivered partner request",
