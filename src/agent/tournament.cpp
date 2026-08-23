@@ -215,7 +215,8 @@ void write_tournament_csv(std::ostream &out, const TournamentResult &result) {
   out << "board0_fen,board1_fen,initial_pockets,initial_history,"
          "initial_clock0_ms,"
          "initial_clock1_ms,initial_clock2_ms,initial_clock3_ms,increment_ms,"
-         "move_cost_ms,max_depth,max_nodes,move_time_ms,search_infinite,"
+         "clock_mode,deterministic_move_time_ms,max_depth,max_nodes,"
+         "move_time_ms,search_infinite,"
          "first_board,max_plies,"
          "final_clock0_ms,final_clock1_ms,final_clock2_ms,final_clock3_ms,"
          "moves0,moves1,moves2,moves3,messages,piece_requests,"
@@ -242,7 +243,9 @@ void write_tournament_csv(std::ostream &out, const TournamentResult &result) {
     for (int player = 0; player < PLAYER_NO; player++)
       out << config.initial_state.clock.time_ms[player] << ',';
     out << config.initial_state.clock.increment_ms << ','
-        << config.self_play.simulated_move_cost_ms << ','
+        << (config.self_play.clock_mode == GameClockMode::RealTime ? "real"
+                                                                   : "deterministic")
+        << ',' << config.self_play.deterministic_move_time_ms << ','
         << config.self_play.search_limits.max_depth << ','
         << config.self_play.search_limits.max_nodes << ','
         << config.self_play.search_limits.move_time.count() << ','

@@ -3,11 +3,26 @@
 #include "agent/experiment.h"
 #include "agent/replay.h"
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <optional>
 #include <stop_token>
 
 class Observer;
+
+enum class GameClockMode { RealTime, Deterministic };
+
+class DecisionTimer {
+public:
+  using time_point = std::chrono::steady_clock::time_point;
+  virtual ~DecisionTimer() = default;
+  virtual time_point now() const = 0;
+};
+
+class SteadyDecisionTimer final : public DecisionTimer {
+public:
+  time_point now() const override { return std::chrono::steady_clock::now(); }
+};
 
 inline constexpr size_t STRATEGY_TYPE_COUNT =
     static_cast<size_t>(StrategyType::Flag) + 1;
@@ -24,9 +39,15 @@ struct SelfPlayConfig {
   SearchLimits search_limits{};
   size_t max_plies = 512;
   int first_board = 0;
-  int64_t simulated_move_cost_ms = 1000;
+  GameClockMode clock_mode = GameClockMode::Deterministic;
+  int64_t deterministic_move_time_ms = 1000;
+  const DecisionTimer *decision_timer = nullptr;
   Observer *observer = nullptr;
 };
+
+SearchLimits real_time_search_limits(const SearchLimits &configured,
+                                     int64_t remaining_ms,
+                                     int increment_ms);
 
 struct SelfPlayResult {
   GameResult game_result = GameResult::ONGOING;

@@ -634,8 +634,16 @@ SearchResult TreeSearch::search(const BughousePosition &position,
                                 std::stop_token stop_token) {
   new_search(limits);
 
-  if (context.history)
-    search_path_ = *context.history;
+  if (context.history) {
+    const std::vector<RepetitionNode> &history = *context.history;
+    if (!history.empty())
+      search_path_.assign(
+          history.end() -
+              static_cast<int>(std::min(
+                  history.size(), static_cast<size_t>(std::max(
+                                      1, history.back().reversible_plies)))),
+          history.end());
+  }
 
   // checkmate, stalemate
   if (generate_legal_moves(position, context.root_player).empty()) {

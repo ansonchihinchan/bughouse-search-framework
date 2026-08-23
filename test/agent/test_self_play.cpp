@@ -79,6 +79,21 @@ protected:
     return {};
   }
 };
+
+class FixedDecisionTimer : public DecisionTimer {
+public:
+  explicit FixedDecisionTimer(std::chrono::milliseconds elapsed)
+      : elapsed_(elapsed) {}
+
+  time_point now() const override {
+    bool finish = calls_++ % 2 == 1;
+    return time_point{} + (finish ? elapsed_ : std::chrono::milliseconds(0));
+  }
+
+private:
+  std::chrono::milliseconds elapsed_;
+  mutable size_t calls_ = 0;
+};
 } // namespace
 
 TEST_CASE("self-play schedules all four agents and applies legal moves",
@@ -256,7 +271,7 @@ TEST_CASE(
   game.clock.set(60000, 500);
   ClockObserver observer;
   SelfPlayConfig config = shallow_game(1);
-  config.simulated_move_cost_ms = 3'000;
+  config.deterministic_move_time_ms = 3'000;
   config.observer = &observer;
 
   SelfPlayResult result = runner.run(game, config);
@@ -278,7 +293,7 @@ TEST_CASE("self-play clocks reflect unequal move counts without wall time",
     BughouseState game;
     game.clock.set(60000, 0);
     SelfPlayConfig config = shallow_game(3);
-    config.simulated_move_cost_ms = 2000;
+    config.deterministic_move_time_ms = 2000;
     return runner.run(game, config);
   };
 
@@ -300,7 +315,7 @@ TEST_CASE("observer callbacks cannot change authoritative self-play clocks",
   BughouseState observed_game;
   ClockObserver observer;
   SelfPlayConfig plain_config = shallow_game(4);
-  plain_config.simulated_move_cost_ms = 2500;
+  plain_config.deterministic_move_time_ms = 2500;
   SelfPlayConfig observed_config = plain_config;
   observed_config.observer = &observer;
 
@@ -326,4 +341,61 @@ TEST_CASE("Agent choose_move snapshots the current authoritative clocks",
           std::array<int64_t, PLAYER_NO>{60000, 60000, 60000, 60000});
   REQUIRE(agent.snapshots[1] ==
           std::array<int64_t, PLAYER_NO>{57500, 60000, 55000, 59250});
+}
+
+TEST_CASE("real-time self-play charges measured decision time only",
+          "[agent][self_play][clock][real_time]") {
+  AgentStrategyExperiment experiment(independent_roster());
+  SelfPlayRunner runner(experiment);
+  BughouseState game;
+  game.clock.set(60'000, 100);
+  FixedDecisionTimer timer(std::chrono::milliseconds(250));
+  ClockObserver observer;
+  SelfPlayConfig config = shallow_game(1);
+  config.clock_mode = GameClockMode::RealTime;
+  config.decision_timer = &timer;
+  config.observer = &observer;
+
+  SelfPlayResult result = runner.run(game, config);
+
+  REQUIRE(result.plies == 1);
+  REQUIRE(result.final_clocks_ms ==
+          std::array<int64_t, PLAYER_NO>{59'850, 60'000, 60'000, 60'000});
+  REQUIRE(observer.after_ply[0] == result.final_clocks_ms);
+}
+
+TEST_CASE("real-time self-play flags before applying an over-time move",
+          "[agent][self_play][clock][real_time][flag]") {
+  AgentStrategyExperiment experiment(independent_roster());
+  SelfPlayRunner runner(experiment);
+  BughouseState game;
+  game.clock.set(500, 2'000);
+  FixedDecisionTimer timer(std::chrono::milliseconds(500));
+  SelfPlayConfig config = shallow_game(1);
+  config.clock_mode = GameClockMode::RealTime;
+  config.decision_timer = &timer;
+
+  SelfPlayResult result = runner.run(game, config);
+
+  REQUIRE(result.termination == SelfPlayTermination::GameOver);
+  REQUIRE(result.game_result == GameResult::TEAM_B_WINS);
+  REQUIRE(result.plies == 0);
+  REQUIRE(result.final_clocks_ms[0] == 0);
+  REQUIRE(game.history.size() == 1);
+}
+
+TEST_CASE("real-time search management respects clock and explicit limits",
+          "[agent][self_play][clock][limits]") {
+  SearchLimits unbounded;
+  REQUIRE(real_time_search_limits(unbounded, 60'000, 2'000)
+              .move_time.count() == 3'000);
+
+  SearchLimits explicit_limit;
+  explicit_limit.move_time = std::chrono::milliseconds(250);
+  REQUIRE(real_time_search_limits(explicit_limit, 60'000, 2'000)
+              .move_time.count() == 250);
+
+  SearchLimits nearly_flagged;
+  REQUIRE(real_time_search_limits(nearly_flagged, 20, 0).move_time.count() <
+          20);
 }

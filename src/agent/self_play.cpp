@@ -2,7 +2,26 @@
 #include "agent/observer.h"
 #include "game/movegen.h"
 #include <algorithm>
+#include <chrono>
 #include <stdexcept>
+
+SearchLimits real_time_search_limits(const SearchLimits &configured,
+                                     int64_t remaining_ms,
+                                     int increment_ms) {
+  SearchLimits limits = configured;
+  if (limits.infinite)
+    return limits;
+
+  int64_t safety_ms =
+      std::min<int64_t>(50, std::max<int64_t>(1, remaining_ms / 20));
+  int64_t available_ms = std::max<int64_t>(1, remaining_ms - safety_ms);
+  int64_t managed_ms =
+      std::max<int64_t>(1, remaining_ms / 30 + std::max(0, increment_ms) / 2);
+  managed_ms = std::min(managed_ms, available_ms);
+  if (limits.move_time.count() <= 0 || limits.move_time.count() > managed_ms)
+    limits.move_time = std::chrono::milliseconds(managed_ms);
+  return limits;
+}
 
 SelfPlayResult SelfPlayRunner::run(BughouseState &game,
                                    const SelfPlayConfig &config,
@@ -10,8 +29,12 @@ SelfPlayResult SelfPlayRunner::run(BughouseState &game,
   if (config.first_board < 0 || config.first_board >= BOARD_NO)
     throw std::invalid_argument("self-play first board is out of range");
 
-  if (config.simulated_move_cost_ms < 0)
-    throw std::invalid_argument("self-play move cost cannot be negative");
+  if (config.deterministic_move_time_ms < 0)
+    throw std::invalid_argument("deterministic move time cannot be negative");
+
+  static const SteadyDecisionTimer steady_timer;
+  const DecisionTimer &timer =
+      config.decision_timer ? *config.decision_timer : steady_timer;
 
   SelfPlayResult result;
   result.replay.initial_state = game;
@@ -73,8 +96,31 @@ SelfPlayResult SelfPlayRunner::run(BughouseState &game,
       return finish(SelfPlayTermination::NoLegalMove);
     }
 
+    const int actor_index = to_int(selected_player);
+    const int64_t remaining_before = game.clock.time_ms[actor_index];
+    SearchLimits decision_limits = config.search_limits;
+    DecisionTimer::time_point decision_start{};
+    if (config.clock_mode == GameClockMode::RealTime) {
+      decision_limits = real_time_search_limits(
+          config.search_limits, remaining_before, game.clock.increment_ms);
+      decision_start = timer.now();
+    }
+
     AgentOutput output = experiment_.choose_move(
-        game, selected_player, config.search_limits, stop_token);
+        game, selected_player, decision_limits, stop_token);
+    int64_t elapsed_ms = config.deterministic_move_time_ms;
+    if (config.clock_mode == GameClockMode::RealTime) {
+      elapsed_ms = std::max<int64_t>(
+          0, std::chrono::duration_cast<std::chrono::milliseconds>(
+                 timer.now() - decision_start)
+                 .count());
+    }
+
+    game.clock.time_ms[actor_index] =
+        std::max<int64_t>(0, remaining_before - elapsed_ms);
+    if (elapsed_ms >= remaining_before)
+      return finish(SelfPlayTermination::GameOver);
+
     const Move move = output.search_result.best_move;
     if (move.is_none() ||
         std::find(legal.begin(), legal.end(), move) == legal.end()) {
@@ -86,23 +132,15 @@ SelfPlayResult SelfPlayRunner::run(BughouseState &game,
       return finish(result.termination);
     }
 
-    if (game.clock.time_ms[to_int(selected_player)] <=
-        config.simulated_move_cost_ms) {
-      game.clock.time_ms[to_int(selected_player)] = 0;
-      return finish(SelfPlayTermination::GameOver);
-    }
-
-    // BughouseState::make_move owns the real-time clock transition. Self-play
-    // instead uses a deterministic clock, so preserve the stored snapshot and
-    // apply exactly one simulated completion after the rules transition.
-    const auto clocks_before_move = game.clock.time_ms;
+    // BughouseState::make_move owns its active-clock transition. Self-play has
+    // already charged either measured or deterministic thinking time, so keep
+    // that authoritative snapshot across the rules transition.
+    const auto clocks_after_thinking = game.clock.time_ms;
     const int increment_ms = game.clock.increment_ms;
     BughouseUndo undo = game.make_move(selected_player, move);
     game.clock.active_players.fill(NO_PLAYER);
-    game.clock.time_ms = clocks_before_move;
-    game.clock.time_ms[to_int(selected_player)] =
-        clocks_before_move[to_int(selected_player)] -
-        config.simulated_move_cost_ms + increment_ms;
+    game.clock.time_ms = clocks_after_thinking;
+    game.clock.time_ms[actor_index] += increment_ms;
     result.plies++;
     result.moves_by_player[to_int(selected_player)]++;
 
