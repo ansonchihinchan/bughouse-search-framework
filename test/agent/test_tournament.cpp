@@ -148,6 +148,7 @@ TEST_CASE("tournament CSV contains raw results and reproduction metadata",
   REQUIRE(text.find("initial_clock0_ms") != std::string::npos);
   REQUIRE(text.find("clock_mode,deterministic_move_time_ms") !=
           std::string::npos);
+  REQUIRE(text.find("deterministic_player0_ms") != std::string::npos);
   REQUIRE(text.find("fulfilled_requests") != std::string::npos);
   REQUIRE(text.find("actual_partner_uses") != std::string::npos);
   REQUIRE(text.find(std::to_string(result.games[0].seed)) != std::string::npos);

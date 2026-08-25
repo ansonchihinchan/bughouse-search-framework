@@ -1,6 +1,8 @@
 #include <catch2/catch_all.hpp>
 
 #include "agent/round_robin.h"
+#include <algorithm>
+#include <sstream>
 
 TEST_CASE("homogeneous schedule contains one explicit matchup per strategy",
           "[agent][round_robin][schedule]") {
@@ -55,10 +57,8 @@ TEST_CASE("explicit schedule preserves asymmetric PlayerId assignments",
 
   ExperimentConfig changed = matchup;
   changed.agent_configs[0].type = AgentType::Request;
-  REQUIRE(tournament_game_seed(changed, 0) !=
-          tournament_game_seed(matchup, 0));
-  REQUIRE(tournament_game_seed(matchup, 0) !=
-          tournament_game_seed(matchup, 1));
+  REQUIRE(tournament_game_seed(changed, 0) != tournament_game_seed(matchup, 0));
+  REQUIRE(tournament_game_seed(matchup, 0) != tournament_game_seed(matchup, 1));
 }
 
 TEST_CASE("round-robin execution delegates each scheduled matchup",
@@ -75,6 +75,9 @@ TEST_CASE("round-robin execution delegates each scheduled matchup",
   RoundRobinResult second = RoundRobinRunner{}.run(config);
   REQUIRE(first.schedule.size() == 2);
   REQUIRE(first.matchups.size() == 2);
+  REQUIRE(first.games.size() == 2);
+  REQUIRE(first.summary.games == 2);
+  REQUIRE(first.summary.unfinished == 2);
   REQUIRE(second.matchups.size() == first.matchups.size());
   for (size_t i = 0; i < first.matchups.size(); i++) {
     REQUIRE(first.matchups[i].games.size() == 1);
@@ -83,6 +86,63 @@ TEST_CASE("round-robin execution delegates each scheduled matchup",
     REQUIRE(first.matchups[i].games[0].result.plies ==
             second.matchups[i].games[0].result.plies);
   }
-  REQUIRE(first.matchups[0].games[0].seed !=
-          first.matchups[1].games[0].seed);
+  REQUIRE(first.matchups[0].games[0].seed != first.matchups[1].games[0].seed);
+}
+
+TEST_CASE("round-robin counts every unfinished game in every matchup",
+          "[agent][round_robin][accounting][regression]") {
+  RoundRobinConfig config;
+  config.mode = ScheduleMode::Homogeneous;
+  config.tournament.game_count = 1;
+  config.tournament.self_play.max_plies = 0;
+
+  RoundRobinResult result = RoundRobinRunner{}.run(config);
+
+  REQUIRE(result.matchups.size() == 4);
+  REQUIRE(result.games.size() == 4);
+  REQUIRE(result.summary.games == 4);
+  REQUIRE(result.summary.unfinished == 4);
+  REQUIRE(result.summary.team_a_wins == 0);
+  REQUIRE(result.summary.team_b_wins == 0);
+  REQUIRE(result.summary.draws == 0);
+}
+
+TEST_CASE("round-robin executes games per matchup and writes one CSV row each",
+          "[agent][round_robin][accounting][csv]") {
+  RoundRobinConfig config;
+  config.mode = ScheduleMode::Homogeneous;
+  config.tournament.game_count = 2;
+  config.tournament.self_play.max_plies = 0;
+
+  RoundRobinResult result = RoundRobinRunner{}.run(config);
+  std::ostringstream csv;
+  write_round_robin_csv(csv, result);
+  const std::string text = csv.str();
+
+  REQUIRE(result.matchups.size() == 4);
+  REQUIRE(result.games.size() == 8);
+  REQUIRE(result.summary.games == 8);
+  REQUIRE(result.summary.unfinished == 8);
+  REQUIRE(std::count(text.begin(), text.end(), '\n') == 9);
+  for (const TournamentResult &matchup : result.matchups)
+    for (const TournamentGameRecord &game : matchup.games)
+      REQUIRE(game.seed ==
+              tournament_game_seed(matchup.config.matchup, game.game_index));
+}
+
+TEST_CASE("tournament summary aggregates wins draws and unfinished records",
+          "[agent][round_robin][accounting]") {
+  TournamentSummary summary;
+  TournamentGameRecord record;
+  for (GameResult outcome : {GameResult::TEAM_A_WINS, GameResult::TEAM_B_WINS,
+                             GameResult::DRAW, GameResult::ONGOING}) {
+    record.result.game_result = outcome;
+    accumulate_tournament_game(summary, record);
+  }
+
+  REQUIRE(summary.games == 4);
+  REQUIRE(summary.team_a_wins == 1);
+  REQUIRE(summary.team_b_wins == 1);
+  REQUIRE(summary.draws == 1);
+  REQUIRE(summary.unfinished == 1);
 }

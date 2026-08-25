@@ -180,19 +180,8 @@ int tournament_command(const Options &options) {
       throw std::runtime_error("cannot open tournament output");
     destination = &file;
   }
-  bool first = true;
-  for (const TournamentResult &matchup : result.matchups) {
-    std::ostringstream csv;
-    write_tournament_csv(csv, matchup);
-    std::string text = csv.str();
-    if (!first) {
-      size_t newline = text.find('\n');
-      text.erase(0, newline == std::string::npos ? text.size() : newline + 1);
-    }
-    if (destination)
-      *destination << text;
-    first = false;
-  }
+  if (destination)
+    write_round_robin_csv(*destination, result);
   std::cerr << "matchups=" << result.matchups.size() << '\n';
   return 0;
 }

@@ -62,6 +62,15 @@ public:
   std::vector<std::array<int64_t, PLAYER_NO>> after_ply;
 };
 
+class EventOrderObserver : public Observer {
+public:
+  void on_ply(const ReplayEvent &event, const BughouseState &) override {
+    boards.push_back(event.board);
+  }
+
+  std::vector<int> boards;
+};
+
 class ClockProbeAgent : public Agent {
 public:
   ClockProbeAgent()
@@ -387,8 +396,8 @@ TEST_CASE("real-time self-play flags before applying an over-time move",
 TEST_CASE("real-time search management respects clock and explicit limits",
           "[agent][self_play][clock][limits]") {
   SearchLimits unbounded;
-  REQUIRE(real_time_search_limits(unbounded, 60'000, 2'000)
-              .move_time.count() == 3'000);
+  REQUIRE(real_time_search_limits(unbounded, 60'000, 2'000).move_time.count() ==
+          3'000);
 
   SearchLimits explicit_limit;
   explicit_limit.move_time = std::chrono::milliseconds(250);
@@ -398,4 +407,86 @@ TEST_CASE("real-time search management respects clock and explicit limits",
   SearchLimits nearly_flagged;
   REQUIRE(real_time_search_limits(nearly_flagged, 20, 0).move_time.count() <
           20);
+}
+
+TEST_CASE("board event scheduler selects earliest board without alternation",
+          "[agent][self_play][scheduler][event_driven]") {
+  BughousePosition position;
+  BoardEventScheduler scheduler(0);
+
+  REQUIRE(scheduler.next_event(position)->board == 0);
+  scheduler.complete_event(0, 1000);
+  REQUIRE(scheduler.next_event(position)->board == 1);
+  scheduler.complete_event(1, 100);
+  REQUIRE(scheduler.next_event(position)->board == 1);
+  scheduler.complete_event(1, 100);
+  REQUIRE(scheduler.next_event(position)->board == 1);
+}
+
+TEST_CASE("zero-duration event cannot starve the other playable board",
+          "[agent][self_play][scheduler][fairness]") {
+  BughousePosition position;
+  BoardEventScheduler scheduler(0);
+
+  REQUIRE(scheduler.next_event(position)->board == 0);
+  scheduler.complete_event(0, 0);
+  REQUIRE(scheduler.next_event(position)->board == 1);
+}
+
+TEST_CASE("stalled board does not stop events and a transfer can unblock it",
+          "[agent][self_play][scheduler][transfer]") {
+  BughousePosition position;
+  position.boards[0].load_fen("7k/5K2/6Q1/8/8/8/8/8 b - - 0 1");
+  position.boards[1].load_fen("4k3/8/8/8/8/8/p7/R3K3 w - - 0 1");
+  BoardEventScheduler scheduler(0);
+
+  REQUIRE(is_stalemate(position, to_player(1)));
+  std::optional<ScheduledBoardEvent> first = scheduler.next_event(position);
+  REQUIRE(first);
+  REQUIRE(first->board == 1);
+  REQUIRE(first->player == to_player(3));
+
+  Move capture = Move::normal(to_square(0, 0), to_square(0, 1));
+  REQUIRE(std::find(first->legal_moves.begin(), first->legal_moves.end(),
+                    capture) != first->legal_moves.end());
+  apply_move(position, first->player, capture);
+  scheduler.complete_event(1, 1000);
+
+  REQUIRE(position.pockets[1].contains(PAWN));
+  std::optional<ScheduledBoardEvent> unblocked = scheduler.next_event(position);
+  REQUIRE(unblocked);
+  REQUIRE(unblocked->board == 0);
+  REQUIRE(unblocked->player == to_player(1));
+  REQUIRE(std::any_of(unblocked->legal_moves.begin(),
+                      unblocked->legal_moves.end(),
+                      [](Move move) { return move.is_drop(); }));
+}
+
+TEST_CASE("self-play replay and observer preserve event-driven move order",
+          "[agent][self_play][scheduler][replay][observer]") {
+  auto run = [](EventOrderObserver *observer) {
+    AgentStrategyExperiment experiment(independent_roster(314));
+    SelfPlayRunner runner(experiment);
+    BughouseState game;
+    SelfPlayConfig config = shallow_game(4);
+    config.deterministic_player_move_time_ms = {1000, 1000, 100, 100};
+    config.observer = observer;
+    return runner.run(game, config);
+  };
+
+  EventOrderObserver observer;
+  SelfPlayResult first = run(&observer);
+  SelfPlayResult second = run(nullptr);
+  std::vector<int> replay_boards;
+  for (const ReplayEvent &event : first.replay.events)
+    replay_boards.push_back(event.board);
+
+  REQUIRE(replay_boards == std::vector<int>{0, 1, 1, 1});
+  REQUIRE(observer.boards == replay_boards);
+  REQUIRE(second.replay.events.size() == first.replay.events.size());
+  for (size_t i = 0; i < first.replay.events.size(); i++) {
+    REQUIRE(second.replay.events[i].board == first.replay.events[i].board);
+    REQUIRE(second.replay.events[i].actor == first.replay.events[i].actor);
+    REQUIRE(second.replay.events[i].move == first.replay.events[i].move);
+  }
 }

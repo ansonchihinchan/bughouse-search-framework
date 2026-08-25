@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <optional>
 #include <stop_token>
+#include <vector>
 
 class Observer;
 
@@ -41,13 +42,33 @@ struct SelfPlayConfig {
   int first_board = 0;
   GameClockMode clock_mode = GameClockMode::Deterministic;
   int64_t deterministic_move_time_ms = 1000;
+  std::array<int64_t, PLAYER_NO> deterministic_player_move_time_ms{};
   const DecisionTimer *decision_timer = nullptr;
   Observer *observer = nullptr;
 };
 
+struct ScheduledBoardEvent {
+  int board = -1;
+  PlayerId player = NO_PLAYER;
+  std::vector<Move> legal_moves;
+};
+
+class BoardEventScheduler {
+public:
+  explicit BoardEventScheduler(int tie_break_board = 0);
+
+  std::optional<ScheduledBoardEvent>
+  next_event(const BughousePosition &position) const;
+  void complete_event(int board, int64_t elapsed_ms);
+  int64_t ready_at_ms(int board) const;
+
+private:
+  int tie_break_board_ = 0;
+  std::array<int64_t, BOARD_NO> ready_at_ms_{};
+};
+
 SearchLimits real_time_search_limits(const SearchLimits &configured,
-                                     int64_t remaining_ms,
-                                     int increment_ms);
+                                     int64_t remaining_ms, int increment_ms);
 
 struct SelfPlayResult {
   GameResult game_result = GameResult::ONGOING;
