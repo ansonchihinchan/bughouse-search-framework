@@ -11,11 +11,6 @@ bool contains_move(const std::vector<Move> &moves, Move m) {
   return std::find(moves.begin(), moves.end(), m) != moves.end();
 }
 
-int count_type(const std::vector<Move> &moves, MoveType type) {
-  return static_cast<int>(
-      std::count_if(moves.begin(), moves.end(),
-                    [type](const Move &m) { return m.type == type; }));
-}
 } // namespace
 
 TEST_CASE("generate_pseudo_legal_moves produces the standard 20 opening moves",
@@ -230,6 +225,12 @@ TEST_CASE("drop_check_squares exactly matches generated checking drops",
   }
 }
 
+TEST_CASE("perft(0) always returns 1 regardless of position",
+          "[movegen][perft]") {
+  Board b;
+  REQUIRE(perft(b, 0) == 1);
+}
+
 TEST_CASE("perft(1) from the start position equals 20", "[movegen][perft]") {
   Board b;
   REQUIRE(perft(b, 1) == 20);
@@ -240,8 +241,73 @@ TEST_CASE("perft(2) from the start position equals 400", "[movegen][perft]") {
   REQUIRE(perft(b, 2) == 400);
 }
 
-TEST_CASE("perft(0) always returns 1 regardless of position",
+TEST_CASE("perft(3) from the start position equals 8902", "[movegen][perft]") {
+  Board b;
+  REQUIRE(perft(b, 3) == 8902);
+}
+
+TEST_CASE("perft(4) from the start position equals 197281",
           "[movegen][perft]") {
   Board b;
-  REQUIRE(perft(b, 0) == 1);
+  REQUIRE(perft(b, 4) == 197281);
+}
+
+TEST_CASE("Kiwipete perft exercises castling pins and captures",
+          "[movegen][perft][oracle]") {
+  // Canonical position 2 from the public perft suite also used by Stockfish
+  Board b("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/"
+          "R3K2R w KQkq - 0 1");
+  REQUIRE(perft(b, 1) == 48);
+  REQUIRE(perft(b, 2) == 2039);
+  const std::array<std::pair<const char *, uint64_t>, 48> divide{{
+      {"a1b1", 1969}, {"a1c1", 1968}, {"a1d1", 1885}, {"a2a3", 2186},
+      {"a2a4", 2149}, {"b2b3", 1964}, {"c3a4", 2203}, {"c3b1", 2038},
+      {"c3b5", 2138}, {"c3d1", 2040}, {"d2c1", 1963}, {"d2e3", 2136},
+      {"d2f4", 2000}, {"d2g5", 2134}, {"d2h6", 2019}, {"d5d6", 1991},
+      {"d5e6", 2241}, {"e1c1", 1887}, {"e1d1", 1894}, {"e1f1", 1855},
+      {"e1g1", 2059}, {"e2a6", 1907}, {"e2b5", 2057}, {"e2c4", 2082},
+      {"e2d1", 1733}, {"e2d3", 2050}, {"e2f1", 2060}, {"e5c4", 1880},
+      {"e5c6", 2027}, {"e5d3", 1803}, {"e5d7", 2124}, {"e5f7", 2080},
+      {"e5g4", 1878}, {"e5g6", 1997}, {"f3d3", 2005}, {"f3e3", 2174},
+      {"f3f4", 2132}, {"f3f5", 2396}, {"f3f6", 2111}, {"f3g3", 2214},
+      {"f3g4", 2169}, {"f3h3", 2360}, {"f3h5", 2267}, {"g2g3", 1882},
+      {"g2g4", 1843}, {"g2h3", 1970}, {"h1f1", 1929}, {"h1g1", 2013}}};
+  const std::vector<Move> moves = generate_pseudo_legal_moves(b);
+  for (const auto &[notation, expected] : divide) {
+    const auto move = std::find_if(moves.begin(), moves.end(), [&](Move candidate) {
+      return candidate.to_string() == notation;
+    });
+    REQUIRE(move != moves.end());
+    BoardUndo undo = b.make_move(*move);
+    const uint64_t actual = perft(b, 2);
+    b.undo_move(*move, undo);
+    INFO("divide move " << notation);
+    REQUIRE(actual == expected);
+  }
+}
+
+TEST_CASE("canonical perft corpus covers tactical rule edge cases",
+          "[movegen][perft][oracle]") {
+  struct PerftCase {
+    const char *fen;
+    std::array<uint64_t, 3> nodes;
+  };
+  const std::array<PerftCase, 4> corpus{{
+      {"8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+       {14, 191, 2812}},
+      {"r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+       {6, 264, 9467}},
+      {"rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+       {44, 1486, 62379}},
+      {"r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/"
+       "R4RK1 w - - 0 10",
+       {46, 2079, 89890}},
+  }};
+
+  for (const PerftCase &entry : corpus) {
+    Board board(entry.fen);
+    INFO("FEN: " << entry.fen);
+    for (int depth = 1; depth <= 3; ++depth)
+      REQUIRE(perft(board, depth) == entry.nodes[depth - 1]);
+  }
 }

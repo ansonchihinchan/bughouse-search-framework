@@ -83,8 +83,6 @@ protected:
   bool is_reducible(bool capture, bool in_check, bool check,
                     bool mating_threat) const;
 
-  static constexpr int HALFMOVE_LIMIT = 100;
-
   int futility_margin(int depth, float volatility) const;
 
   Killer killer_;

@@ -96,8 +96,28 @@ TEST_CASE("make_prediction_summary derives attack confidence and expected "
 
   float expected_confidence = 0.5f * 0.7f;
   REQUIRE(summary.attack_confidence == Catch::Approx(expected_confidence));
+  REQUIRE(summary.receive_probability[KNIGHT] ==
+          Catch::Approx(expected_confidence));
   REQUIRE(summary.expected_incoming_value ==
           Catch::Approx(expected_confidence * PieceValue::PIECE_VALUE[KNIGHT]));
+}
+
+TEST_CASE("partner messages require the expected sender and expire",
+          "[eval][context][communication][freshness]") {
+  BughousePosition position = bare_position();
+  position.boards[1].fullMove = 10;
+  Message message{};
+  message.sender = to_player(2);
+  message.move_no = 10;
+  REQUIRE(is_fresh_partner_message(position, to_player(0), message));
+
+  message.sender = to_player(3);
+  REQUIRE_FALSE(is_fresh_partner_message(position, to_player(0), message));
+  message.sender = to_player(2);
+  message.move_no = 10 - MAX_MESSAGE_AGE - 1;
+  REQUIRE_FALSE(is_fresh_partner_message(position, to_player(0), message));
+  message.move_no = 11;
+  REQUIRE_FALSE(is_fresh_partner_message(position, to_player(0), message));
 }
 
 TEST_CASE("make_prediction_summary ignores strategy requests other than "

@@ -25,7 +25,7 @@ void Board::put_piece(Piece piece, Square square) {
 
 void Board::remove_piece(Square square) {
   Piece piece = squares[square];
-  squares[square].type = NO_PIECE_TYPE;
+  squares[square] = Piece{};
   bitboards[piece.index()] &= ~(1ULL << square);
   hash ^= Zobrist::pieceSquare[piece.index()][square];
 }
@@ -220,41 +220,26 @@ bool Board::is_in_check() const {
 }
 
 void Board::update_castling_rights(Square from, Square to) {
-  constexpr CastlingRights castling_mask[64] = {
-      static_cast<CastlingRights>(13), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(12), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(14),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(7),  static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(3),  static_cast<CastlingRights>(15),
-      static_cast<CastlingRights>(15), static_cast<CastlingRights>(11),
+  const auto mask_for = [](Square square) {
+    switch (square) {
+    case 0:
+      return static_cast<CastlingRights>(ANY_CASTLING & ~WHITE_OOO);
+    case 4:
+      return static_cast<CastlingRights>(ANY_CASTLING & ~WHITE_CASTLING);
+    case 7:
+      return static_cast<CastlingRights>(ANY_CASTLING & ~WHITE_OO);
+    case 56:
+      return static_cast<CastlingRights>(ANY_CASTLING & ~BLACK_OOO);
+    case 60:
+      return static_cast<CastlingRights>(ANY_CASTLING & ~BLACK_CASTLING);
+    case 63:
+      return static_cast<CastlingRights>(ANY_CASTLING & ~BLACK_OO);
+    default:
+      return ANY_CASTLING;
+    }
   };
   hash ^= Zobrist::castlingRights[castlingRights];
-  castlingRights &= castling_mask[from] & castling_mask[to];
+  castlingRights &= mask_for(from) & mask_for(to);
   hash ^= Zobrist::castlingRights[castlingRights];
 }
 
@@ -416,7 +401,7 @@ bool Board::has_non_pawn(Colour colour) const {
   return false;
 }
 
-bool Board::is_legal(Move move) const {
+bool Board::is_king_safe_after(Move move) const {
   Board copy = *this;
   Colour moved_side = sideToMove;
 
@@ -434,12 +419,27 @@ bool Board::is_legal(Move move) const {
   return !copy.is_attacked(ksq, copy.sideToMove);
 }
 
+bool Board::is_legal(Move move) const {
+  if (move.is_drop()) {
+    if (move.drop_pt < PAWN || move.drop_pt > QUEEN || move.to < 0 ||
+        move.to >= SQUARE_NO || !is_empty(move.to) ||
+        (move.drop_pt == PAWN &&
+         (rank_of(move.to) == 0 || rank_of(move.to) == 7)))
+      return false;
+    return is_king_safe_after(move);
+  }
+  const auto pseudo_legal = generate_pseudo_legal_moves(*this);
+  return std::find(pseudo_legal.begin(), pseudo_legal.end(), move) !=
+             pseudo_legal.end() &&
+         is_king_safe_after(move);
+}
+
 bool Board::is_checkmate() const {
   if (!is_in_check())
     return false;
   auto moves = generate_pseudo_legal_moves(*this);
   for (auto m : moves)
-    if (is_legal(m))
+    if (is_king_safe_after(m))
       return false;
   return true;
 }
@@ -449,7 +449,7 @@ bool Board::is_stalemate() const {
     return false;
   auto moves = generate_pseudo_legal_moves(*this);
   for (auto m : moves)
-    if (is_legal(m))
+    if (is_king_safe_after(m))
       return false;
   return true;
 }

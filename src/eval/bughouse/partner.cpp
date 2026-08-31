@@ -5,7 +5,6 @@
 EvalScore PartnerEvaluator::evaluate(const EvalContext &context) const {
   const PartnerContext &partner = context.communication.partner;
   const Message &message = context.communication.message;
-  const PredictionSummary &prediction = context.communication.prediction;
   const BughouseContext &bughouse = context.bughouse;
 
   EvalScore score(0);
@@ -35,7 +34,7 @@ EvalScore PartnerEvaluator::evaluate(const EvalContext &context) const {
                    urgency_weight(message.strat_request.urgency);
     score += EvalScore(PARTNER_ATTACK_READINESS_BONUS_MID,
                        PARTNER_ATTACK_READINESS_BONUS_END)
-                 .scale(message.strat_request.confidence);
+                 .scale(weight);
   } else if (message.strat_request.strat == StrategyType::Defend) {
     float weight = message.strat_request.confidence *
                    urgency_weight(message.strat_request.urgency);

@@ -147,3 +147,53 @@ TEST_CASE("replay serialization round-trips deterministic event data",
   REQUIRE(viewed.str().find("Clocks:") != std::string::npos);
   REQUIRE(viewed.str().find("Current players:") != std::string::npos);
 }
+
+TEST_CASE("read_replay rejects an out-of-range actor index",
+          "[agent][replay][validation]") {
+  GameReplay replay = coordinated_replay();
+  replay.events[0].actor = to_player(9);
+
+  std::ostringstream encoded;
+  write_replay(encoded, replay);
+  std::istringstream input(encoded.str());
+
+  REQUIRE_THROWS_AS(read_replay(input), std::runtime_error);
+}
+
+TEST_CASE("read_replay rejects an event whose board does not match the "
+          "actor's board",
+          "[agent][replay][validation]") {
+  GameReplay replay = coordinated_replay();
+  replay.events[0].board = 1 - replay.events[0].board;
+
+  std::ostringstream encoded;
+  write_replay(encoded, replay);
+  std::istringstream input(encoded.str());
+
+  REQUIRE_THROWS_AS(read_replay(input), std::runtime_error);
+}
+
+TEST_CASE("read_replay rejects an oversized event count",
+          "[agent][replay][validation]") {
+  std::istringstream input("BUGHOUSE_REPLAY 1\n"
+                           "BOARD0 \"4k3/8/8/8/8/8/8/4K3 w - - 0 1\"\n"
+                           "BOARD1 \"4k3/8/8/8/8/8/8/4K3 w - - 0 1\"\n"
+                           "POCKETS 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n"
+                           "CLOCKS 0 0 0 0 0\n"
+                           "HISTORY 0\n"
+                           "EVENTS 999999999\n");
+
+  REQUIRE_THROWS_AS(read_replay(input), std::runtime_error);
+}
+
+TEST_CASE("analyse_replay and view_replay reject an illegal move instead of "
+          "invoking undefined behaviour",
+          "[agent][replay][validation]") {
+  GameReplay replay = coordinated_replay();
+  replay.events[0].move = Move::normal(to_square(1, 1), to_square(1, 3));
+
+  REQUIRE_THROWS_AS(analyse_replay(replay), std::runtime_error);
+
+  std::ostringstream out;
+  REQUIRE_THROWS_AS(view_replay(out, replay), std::runtime_error);
+}

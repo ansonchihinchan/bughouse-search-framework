@@ -55,8 +55,10 @@ int winning_team(GameResult result) {
   return -1;
 }
 
-void add_to_summary(TournamentSummary &summary,
-                    const TournamentGameRecord &record) {
+} // namespace
+
+void accumulate_tournament_game(TournamentSummary &summary,
+                                const TournamentGameRecord &record) {
   summary.games++;
 
   switch (record.result.game_result) {
@@ -88,6 +90,8 @@ void add_to_summary(TournamentSummary &summary,
   summary.total_drops += record.result.total_drops;
   summary.wasted_drops += record.result.wasted_drops;
 }
+
+namespace {
 
 std::string pocket_text(const BughousePosition &position) {
   std::ostringstream out;
@@ -197,7 +201,7 @@ TournamentResult TournamentRunner::run(const TournamentConfig &config,
     record.seed = seed;
     record.winning_team = winning_team(self_play.game_result);
     record.result = std::move(self_play);
-    add_to_summary(tournament.summary, record);
+    accumulate_tournament_game(tournament.summary, record);
     if (config.observer)
       config.observer->on_game_end(record, tournament.summary);
     tournament.games.push_back(std::move(record));
@@ -215,7 +219,10 @@ void write_tournament_csv(std::ostream &out, const TournamentResult &result) {
   out << "board0_fen,board1_fen,initial_pockets,initial_history,"
          "initial_clock0_ms,"
          "initial_clock1_ms,initial_clock2_ms,initial_clock3_ms,increment_ms,"
-         "move_cost_ms,max_depth,max_nodes,move_time_ms,search_infinite,"
+         "clock_mode,deterministic_move_time_ms,deterministic_player0_ms,"
+         "deterministic_player1_ms,deterministic_player2_ms,"
+         "deterministic_player3_ms,max_depth,max_nodes,"
+         "move_time_ms,search_infinite,"
          "first_board,max_plies,"
          "final_clock0_ms,final_clock1_ms,final_clock2_ms,final_clock3_ms,"
          "moves0,moves1,moves2,moves3,messages,piece_requests,"
@@ -242,7 +249,14 @@ void write_tournament_csv(std::ostream &out, const TournamentResult &result) {
     for (int player = 0; player < PLAYER_NO; player++)
       out << config.initial_state.clock.time_ms[player] << ',';
     out << config.initial_state.clock.increment_ms << ','
-        << config.self_play.simulated_move_cost_ms << ','
+        << (config.self_play.clock_mode == GameClockMode::RealTime
+                ? "real"
+                : "deterministic")
+        << ',' << config.self_play.deterministic_move_time_ms << ','
+        << config.self_play.deterministic_player_move_time_ms[0] << ','
+        << config.self_play.deterministic_player_move_time_ms[1] << ','
+        << config.self_play.deterministic_player_move_time_ms[2] << ','
+        << config.self_play.deterministic_player_move_time_ms[3] << ','
         << config.self_play.search_limits.max_depth << ','
         << config.self_play.search_limits.max_nodes << ','
         << config.self_play.search_limits.move_time.count() << ','

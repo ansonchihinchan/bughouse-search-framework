@@ -58,8 +58,7 @@ TemporalScheduler::next_actor(const TemporalState &state) const {
   return std::nullopt;
 }
 
-GameResult TemporalScheduler::advance_clocks(TemporalState &state,
-                                             PlayerId actor) const {
+GameResult TemporalScheduler::advance_clocks(TemporalState &state) const {
   std::array<PlayerId, BOARD_NO> active{};
   for (int board = 0; board < BOARD_NO; board++) {
     active[board] =
@@ -95,7 +94,7 @@ bool TemporalScheduler::apply_event(TemporalState &state, PlayerId actor,
   event.move = move;
   event.elapsed_ms = config_.simulated_move_cost_ms;
 
-  GameResult flag_result = advance_clocks(state, actor);
+  GameResult flag_result = advance_clocks(state);
   if (flag_result != GameResult::ONGOING) {
     trace.game_result = flag_result;
     trace.stop_reason = TemporalStopReason::GameOver;

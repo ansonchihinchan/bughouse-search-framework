@@ -16,11 +16,16 @@ struct Options {
   int depth = 1;
   uint64_t max_nodes = 0;
   int time_ms = 0;
+  int initial_time_seconds = 180;
+  int increment_seconds = 2;
+  int64_t deterministic_move_time_ms = 1000;
   SearchAlgorithm algorithm = SearchAlgorithm::PVS;
   ScheduleMode schedule = ScheduleMode::Homogeneous;
   std::string output;
   bool step = false;
   bool live = false;
+  bool clock_mode_set = false;
+  GameClockMode clock_mode = GameClockMode::RealTime;
 };
 
 std::string next_value(int &index, int argc, char **argv) {
@@ -45,13 +50,29 @@ Options parse_options(int start, int argc, char **argv) {
       options.max_nodes = std::stoull(next_value(i, argc, argv));
     else if (arg == "--time-ms")
       options.time_ms = std::stoi(next_value(i, argc, argv));
+    else if (arg == "--time")
+      options.initial_time_seconds = std::stoi(next_value(i, argc, argv));
+    else if (arg == "--increment")
+      options.increment_seconds = std::stoi(next_value(i, argc, argv));
+    else if (arg == "--deterministic-move-ms")
+      options.deterministic_move_time_ms =
+          std::stoll(next_value(i, argc, argv));
     else if (arg == "--output")
       options.output = next_value(i, argc, argv);
     else if (arg == "--step")
       options.step = true;
     else if (arg == "--live")
       options.live = true;
-    else if (arg == "--mode") {
+    else if (arg == "--clock") {
+      std::string mode = next_value(i, argc, argv);
+      if (mode == "real")
+        options.clock_mode = GameClockMode::RealTime;
+      else if (mode == "deterministic")
+        options.clock_mode = GameClockMode::Deterministic;
+      else
+        throw std::invalid_argument("clock must be real or deterministic");
+      options.clock_mode_set = true;
+    } else if (arg == "--mode") {
       std::string mode = next_value(i, argc, argv);
       if (mode == "homogeneous")
         options.schedule = ScheduleMode::Homogeneous;
@@ -86,22 +107,28 @@ ExperimentConfig roster(const Options &options) {
   return config;
 }
 
-SelfPlayConfig game_config(const Options &options) {
+SelfPlayConfig game_config(const Options &options,
+                           GameClockMode default_clock_mode) {
   SelfPlayConfig config;
   config.max_plies = options.max_plies;
   config.search_limits.max_depth = options.depth;
   config.search_limits.max_nodes = options.max_nodes;
   config.search_limits.move_time = std::chrono::milliseconds(options.time_ms);
+  config.clock_mode =
+      options.clock_mode_set ? options.clock_mode : default_clock_mode;
+  config.deterministic_move_time_ms = options.deterministic_move_time_ms;
   return config;
 }
 
 void print_usage() {
   std::cout << "Usage:\n"
                "  bughouse self-play [--seed N] [--depth N] [--max-plies N] "
+               "[--clock real|deterministic] [--time SEC] [--increment SEC] "
                "[--output game.replay] [--live]\n"
                "  bughouse tournament [--games N] [--seed N] "
                "[--mode homogeneous|exhaustive] [--algorithm pvs|alpha_beta|"
                "null_move] [--depth N] [--max-nodes N] [--time-ms N] "
+               "[--clock real|deterministic] [--time SEC] [--increment SEC] "
                "[--output results.csv] [--live]\n"
                "  bughouse replay <file> [--step]\n";
 }
@@ -110,7 +137,9 @@ int self_play_command(const Options &options) {
   AgentStrategyExperiment experiment(roster(options));
   SelfPlayRunner runner(experiment);
   BughouseState game;
-  SelfPlayConfig config = game_config(options);
+  game.clock.set(static_cast<int64_t>(options.initial_time_seconds) * 1000,
+                 options.increment_seconds * 1000);
+  SelfPlayConfig config = game_config(options, GameClockMode::RealTime);
   TerminalObserver observer(std::cout, options.live);
   if (options.live)
     config.observer = &observer;
@@ -133,7 +162,11 @@ int tournament_command(const Options &options) {
   config.mode = options.schedule;
   config.tournament.matchup = roster(options);
   config.tournament.game_count = options.games;
-  config.tournament.self_play = game_config(options);
+  config.tournament.self_play =
+      game_config(options, GameClockMode::Deterministic);
+  config.tournament.initial_state.clock.set(
+      static_cast<int64_t>(options.initial_time_seconds) * 1000,
+      options.increment_seconds * 1000);
   TerminalObserver observer(std::cout, options.live);
   if (options.live)
     config.tournament.observer = &observer;
@@ -147,19 +180,8 @@ int tournament_command(const Options &options) {
       throw std::runtime_error("cannot open tournament output");
     destination = &file;
   }
-  bool first = true;
-  for (const TournamentResult &matchup : result.matchups) {
-    std::ostringstream csv;
-    write_tournament_csv(csv, matchup);
-    std::string text = csv.str();
-    if (!first) {
-      size_t newline = text.find('\n');
-      text.erase(0, newline == std::string::npos ? text.size() : newline + 1);
-    }
-    if (destination)
-      *destination << text;
-    first = false;
-  }
+  if (destination)
+    write_round_robin_csv(*destination, result);
   std::cerr << "matchups=" << result.matchups.size() << '\n';
   return 0;
 }

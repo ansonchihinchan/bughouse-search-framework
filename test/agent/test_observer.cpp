@@ -1,6 +1,7 @@
 #include <catch2/catch_all.hpp>
 
 #include "agent/observer.h"
+#include "agent/round_robin.h"
 #include <sstream>
 
 namespace {
@@ -127,4 +128,24 @@ TEST_CASE("tournament dispatch reaches both game-end overloads",
   REQUIRE(text.find("Result: ongoing plies=0") != std::string::npos);
   REQUIRE(text.find("Game 1 / 1") != std::string::npos);
   REQUIRE(text.find("--- tournament complete ---") != std::string::npos);
+}
+
+TEST_CASE("round-robin observer reports one aggregate tournament lifecycle",
+          "[agent][observer][terminal][round_robin][regression]") {
+  std::ostringstream out;
+  TerminalObserver observer(out, false);
+  RoundRobinConfig config;
+  config.mode = ScheduleMode::Homogeneous;
+  config.tournament.game_count = 1;
+  config.tournament.self_play.max_plies = 0;
+  config.tournament.observer = &observer;
+
+  RoundRobinRunner{}.run(config);
+  const std::string text = out.str();
+
+  REQUIRE(
+      text.find("Games=4 Team A wins=0 Team B wins=0 Draws=0 Unfinished=4") !=
+      std::string::npos);
+  REQUIRE(text.find("Game 4 / 4") != std::string::npos);
+  REQUIRE(text.find("Games=1 Team A") == std::string::npos);
 }

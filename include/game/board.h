@@ -77,6 +77,8 @@ public:
   bool is_in_check() const;
   bool is_attacked(Square square, Colour colour) const;
   bool is_legal(Move move) const;
+  // Fast king-safety check for pseudo-legal movegen
+  bool is_king_safe_after(Move move) const;
   bool is_capture(Move move) const {
     return move.type == EN_PASSANT || !piece_on(move.to).is_empty();
   }

@@ -2,7 +2,64 @@
 #include "agent/observer.h"
 #include "game/movegen.h"
 #include <algorithm>
+#include <chrono>
 #include <stdexcept>
+
+SearchLimits real_time_search_limits(const SearchLimits &configured,
+                                     int64_t remaining_ms, int increment_ms) {
+  SearchLimits limits = configured;
+  if (limits.infinite)
+    return limits;
+
+  int64_t safety_ms =
+      std::min<int64_t>(50, std::max<int64_t>(1, remaining_ms / 20));
+  int64_t available_ms = std::max<int64_t>(1, remaining_ms - safety_ms);
+  int64_t managed_ms =
+      std::max<int64_t>(1, remaining_ms / 30 + std::max(0, increment_ms) / 2);
+  managed_ms = std::min(managed_ms, available_ms);
+  if (limits.move_time.count() <= 0 || limits.move_time.count() > managed_ms)
+    limits.move_time = std::chrono::milliseconds(managed_ms);
+  return limits;
+}
+
+BoardEventScheduler::BoardEventScheduler(int tie_break_board)
+    : tie_break_board_(tie_break_board) {
+  if (tie_break_board < 0 || tie_break_board >= BOARD_NO)
+    throw std::invalid_argument("scheduler tie-break board is out of range");
+}
+
+std::optional<ScheduledBoardEvent>
+BoardEventScheduler::next_event(const BughousePosition &position) const {
+  std::optional<ScheduledBoardEvent> best;
+  for (int board = 0; board < BOARD_NO; board++) {
+    PlayerId player = player_on_board(board, position.boards[board].sideToMove);
+    std::vector<Move> legal = generate_legal_moves(position, player);
+    if (legal.empty())
+      continue;
+    bool earlier = !best || ready_at_ms_[board] < ready_at_ms_[best->board];
+    bool tied_and_preferred =
+        best && ready_at_ms_[board] == ready_at_ms_[best->board] &&
+        board == tie_break_board_ && best->board != tie_break_board_;
+    if (earlier || tied_and_preferred)
+      best = ScheduledBoardEvent{board, player, std::move(legal)};
+  }
+  return best;
+}
+
+void BoardEventScheduler::complete_event(int board, int64_t elapsed_ms) {
+  if (board < 0 || board >= BOARD_NO || elapsed_ms < 0)
+    throw std::invalid_argument("invalid completed board event");
+  // Clock accounting may round a sub-millisecond decision to zero. The event
+  // timeline still advances one tick so the stable tie break cannot starve a
+  // second playable board.
+  ready_at_ms_[board] += std::max<int64_t>(elapsed_ms, 1);
+}
+
+int64_t BoardEventScheduler::ready_at_ms(int board) const {
+  if (board < 0 || board >= BOARD_NO)
+    throw std::invalid_argument("scheduler board is out of range");
+  return ready_at_ms_[board];
+}
 
 SelfPlayResult SelfPlayRunner::run(BughouseState &game,
                                    const SelfPlayConfig &config,
@@ -10,14 +67,22 @@ SelfPlayResult SelfPlayRunner::run(BughouseState &game,
   if (config.first_board < 0 || config.first_board >= BOARD_NO)
     throw std::invalid_argument("self-play first board is out of range");
 
-  if (config.simulated_move_cost_ms < 0)
-    throw std::invalid_argument("self-play move cost cannot be negative");
+  if (config.deterministic_move_time_ms < 0)
+    throw std::invalid_argument("deterministic move time cannot be negative");
+  for (int64_t player_time : config.deterministic_player_move_time_ms)
+    if (player_time < 0)
+      throw std::invalid_argument(
+          "deterministic player time cannot be negative");
+
+  static const SteadyDecisionTimer steady_timer;
+  const DecisionTimer &timer =
+      config.decision_timer ? *config.decision_timer : steady_timer;
 
   SelfPlayResult result;
   result.replay.initial_state = game;
   if (config.observer)
     config.observer->on_game_start(game);
-  int preferred_board = config.first_board;
+  BoardEventScheduler scheduler(config.first_board);
   std::array<std::optional<PieceType>, PLAYER_NO> pending_requests{};
   std::array<std::array<size_t, PIECE_TYPE_NO>, PLAYER_NO>
       pending_sacrifice_transfers{};
@@ -53,28 +118,43 @@ SelfPlayResult SelfPlayRunner::run(BughouseState &game,
     if (stop_token.stop_requested())
       return finish(SelfPlayTermination::Stopped);
 
-    int selected_board = -1;
-    PlayerId selected_player = NO_PLAYER;
-    std::vector<Move> legal;
-    for (int offset = 0; offset < BOARD_NO; offset++) {
-      int board = (preferred_board + offset) % BOARD_NO;
-      PlayerId player =
-          player_on_board(board, game.position.boards[board].sideToMove);
-      auto candidates = generate_legal_moves(game.position, player);
-      if (!candidates.empty()) {
-        selected_board = board;
-        selected_player = player;
-        legal = std::move(candidates);
-        break;
-      }
-    }
-
-    if (selected_board < 0) {
+    std::optional<ScheduledBoardEvent> scheduled =
+        scheduler.next_event(game.position);
+    if (!scheduled) {
       return finish(SelfPlayTermination::NoLegalMove);
     }
+    int selected_board = scheduled->board;
+    PlayerId selected_player = scheduled->player;
+    std::vector<Move> &legal = scheduled->legal_moves;
 
-    AgentOutput output = experiment_.choose_move(
-        game, selected_player, config.search_limits, stop_token);
+    const int actor_index = to_int(selected_player);
+    const int64_t remaining_before = game.clock.time_ms[actor_index];
+    SearchLimits decision_limits = config.search_limits;
+    DecisionTimer::time_point decision_start{};
+    if (config.clock_mode == GameClockMode::RealTime) {
+      decision_limits = real_time_search_limits(
+          config.search_limits, remaining_before, game.clock.increment_ms);
+      decision_start = timer.now();
+    }
+
+    AgentOutput output = experiment_.choose_move(game, selected_player,
+                                                 decision_limits, stop_token);
+    int64_t elapsed_ms = config.deterministic_move_time_ms;
+    int64_t player_time = config.deterministic_player_move_time_ms[actor_index];
+    if (config.clock_mode == GameClockMode::Deterministic && player_time > 0)
+      elapsed_ms = player_time;
+    if (config.clock_mode == GameClockMode::RealTime) {
+      elapsed_ms = std::max<int64_t>(
+          0, std::chrono::duration_cast<std::chrono::milliseconds>(
+                 timer.now() - decision_start)
+                 .count());
+    }
+
+    game.clock.time_ms[actor_index] =
+        std::max<int64_t>(0, remaining_before - elapsed_ms);
+    if (elapsed_ms >= remaining_before)
+      return finish(SelfPlayTermination::GameOver);
+
     const Move move = output.search_result.best_move;
     if (move.is_none() ||
         std::find(legal.begin(), legal.end(), move) == legal.end()) {
@@ -86,23 +166,16 @@ SelfPlayResult SelfPlayRunner::run(BughouseState &game,
       return finish(result.termination);
     }
 
-    if (game.clock.time_ms[to_int(selected_player)] <=
-        config.simulated_move_cost_ms) {
-      game.clock.time_ms[to_int(selected_player)] = 0;
-      return finish(SelfPlayTermination::GameOver);
-    }
-
-    // BughouseState::make_move owns the real-time clock transition. Self-play
-    // instead uses a deterministic clock, so preserve the stored snapshot and
-    // apply exactly one simulated completion after the rules transition.
-    const auto clocks_before_move = game.clock.time_ms;
+    // BughouseState::make_move owns its active-clock transition. Self-play has
+    // already charged either measured or deterministic thinking time, so keep
+    // that authoritative snapshot across the rules transition.
+    const auto clocks_after_thinking = game.clock.time_ms;
     const int increment_ms = game.clock.increment_ms;
     BughouseUndo undo = game.make_move(selected_player, move);
     game.clock.active_players.fill(NO_PLAYER);
-    game.clock.time_ms = clocks_before_move;
-    game.clock.time_ms[to_int(selected_player)] =
-        clocks_before_move[to_int(selected_player)] -
-        config.simulated_move_cost_ms + increment_ms;
+    game.clock.time_ms = clocks_after_thinking;
+    game.clock.time_ms[actor_index] += increment_ms;
+    scheduler.complete_event(selected_board, elapsed_ms);
     result.plies++;
     result.moves_by_player[to_int(selected_player)]++;
 
@@ -167,7 +240,6 @@ SelfPlayResult SelfPlayRunner::run(BughouseState &game,
     if (config.observer)
       config.observer->on_ply(replay_event, game);
     result.replay.events.push_back(std::move(replay_event));
-    preferred_board = (selected_board + 1) % BOARD_NO;
   }
 
   return finish(game.result() == GameResult::ONGOING

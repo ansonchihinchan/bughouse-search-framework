@@ -369,8 +369,11 @@ int TreeSearch::alpha_beta(BughousePosition &position,
 
   std::vector<ScoredMove> scored_moves;
   scored_moves.reserve(moves.size());
-  for (Move move : moves)
-    scored_moves.push_back(ScoredMove{move, 0});
+  for (Move move : moves) {
+    ScoredMove scored;
+    scored.move = move;
+    scored_moves.push_back(scored);
+  }
 
   order_moves(position, context, prev, scored_moves, tt_entry, ply);
 
@@ -389,15 +392,14 @@ int TreeSearch::alpha_beta(BughousePosition &position,
   Move best_move;
   bool first_child = true;
   bool completed = true;
-  int move_index = 0;
-
   for (size_t move_index = 0; move_index < scored_moves.size(); move_index++) {
     search_next_best(scored_moves, move_index);
     ScoredMove &scored_move = scored_moves[move_index];
     Move move = scored_move.move;
     bool capture = scored_move.capture;
 
-    if (capture && params_.see_enabled &&
+    if (capture && params_.see_enabled && !in_check &&
+        !scored_move.gives_check && move.type != PROMOTE &&
         scored_move.see_score < params_.see_prune_threshold)
       continue;
 
@@ -506,6 +508,7 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
                                      int alpha, int beta,
                                      std::stop_token stop_token) {
   SearchResult result;
+  result.depth = depth;
   BughousePosition working = position;
   const Board &board = working.boards[board_of(context.root_player)];
   bool in_check = board.is_in_check();
@@ -534,8 +537,11 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
 
   std::vector<ScoredMove> scored_moves;
   scored_moves.reserve(moves.size());
-  for (Move move : moves)
-    scored_moves.push_back(ScoredMove{move, 0});
+  for (Move move : moves) {
+    ScoredMove scored;
+    scored.move = move;
+    scored_moves.push_back(scored);
+  }
 
   const TTEntry *tt_entry = params_.tt_enabled ? tt_.probe(key) : nullptr;
 
@@ -553,8 +559,6 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
   bool first_child = true;
   bool searched = false;
   bool completed = true;
-  int move_index = 0;
-
   for (size_t move_index = 0; move_index < scored_moves.size(); move_index++) {
     search_next_best(scored_moves, move_index);
     ScoredMove &scored_move = scored_moves[move_index];
@@ -621,8 +625,8 @@ SearchResult TreeSearch::search_root(const BughousePosition &position,
     tt_.store(key, depth, score_to_tt(result.score, 0), result.best_move,
               result.bound);
   if (!result.best_move.is_none())
-    result.pv = extract_pv(position, context.root_player, tt_, depth,
-                           context.comm_hash);
+    result.pv = extract_pv(position, context.root_player, tt_,
+                           context.comm_hash, depth);
   result.completed = completed;
 
   return result;
@@ -634,16 +638,47 @@ SearchResult TreeSearch::search(const BughousePosition &position,
                                 std::stop_token stop_token) {
   new_search(limits);
 
-  if (context.history)
-    search_path_ = *context.history;
+  if (context.history) {
+    const std::vector<RepetitionNode> &history = *context.history;
+    if (!history.empty())
+      search_path_.assign(
+          history.end() -
+              static_cast<int>(std::min(
+                  history.size(), static_cast<size_t>(std::max(
+                                      1, history.back().reversible_plies)))),
+          history.end());
+  }
 
   // checkmate, stalemate
   if (generate_legal_moves(position, context.root_player).empty()) {
     stats_.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - start_time_);
+
+    const Board &board = position.boards[board_of(context.root_player)];
+
     SearchResult best;
+    best.score =
+        board.is_in_check() ? -INF_SCORE : evaluate_position(position, context);
+    best.completed = true;
+    best.bound = TTBound::EXACT;
     best.stats = stats_;
     return best;
+  }
+
+  const bool repeated = context.history && !context.history->empty() &&
+                        context.history->back().repetition < 0;
+  const bool fifty_move_draw = std::any_of(
+      position.boards.begin(), position.boards.end(),
+      [](const Board &board) { return board.halfMove >= HALFMOVE_LIMIT; });
+  if (repeated || fifty_move_draw) {
+    stats_.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start_time_);
+    SearchResult draw;
+    draw.score = DRAW_SCORE;
+    draw.completed = true;
+    draw.bound = TTBound::EXACT;
+    draw.stats = stats_;
+    return draw;
   }
 
   TreeSearcher searcher(*this, tt_, params_, stats_);

@@ -51,6 +51,9 @@ struct TournamentResult {
   TournamentSummary summary{};
 };
 
+void accumulate_tournament_game(TournamentSummary &summary,
+                                const TournamentGameRecord &record);
+
 uint64_t tournament_matchup_identity(const ExperimentConfig &matchup);
 uint64_t tournament_game_seed(const ExperimentConfig &matchup,
                               size_t game_index);

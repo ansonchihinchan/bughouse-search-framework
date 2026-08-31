@@ -34,6 +34,7 @@ private:
   BughouseEvaluationConfig config_;
   ClassicalEvaluator classical_;
   std::vector<std::unique_ptr<BughouseFeature>> features_;
+  std::vector<std::unique_ptr<BughouseFeature>> communication_features_;
 
   mutable std::array<uint64_t, COLOUR_NO> cached_partner_hash_{};
   mutable std::array<int, COLOUR_NO> cached_partner_score_{};

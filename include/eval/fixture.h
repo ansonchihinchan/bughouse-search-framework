@@ -20,7 +20,8 @@ struct Fixture {
     return EvalContext{
         make_classical_context(board),
         BughouseContext{pockets, root_player, remaining},
-        CommunicationContext{partner, partner_by_colour, message, prediction}};
+        CommunicationContext{root_player, partner, partner_by_colour, message,
+                             prediction}};
   }
 };
 

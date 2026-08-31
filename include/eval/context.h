@@ -27,14 +27,18 @@ struct PartnerContext {
   int material_balance = 0;
   int king_danger = 0;
   int phase = 0;
-
-  float stall_intent = 0.f;
 };
 
 bool is_dangerous(const Board &board, int phase);
-bool should_stall(float stall_intent);
+
+inline constexpr int MAX_MESSAGE_AGE = 2;
+bool is_fresh_partner_message(const BughousePosition &position,
+                              PlayerId recipient, const Message &message);
 
 struct CommunicationContext {
+  // The player this snapshot was frozen for at the start of the search
+  // message/prediction are player's team's private communication
+  PlayerId origin_player = NO_PLAYER;
   PartnerContext partner;
   std::array<PartnerContext, COLOUR_NO> partner_by_colour{};
   Message message;

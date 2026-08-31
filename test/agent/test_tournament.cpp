@@ -14,7 +14,7 @@ TournamentConfig short_tournament(size_t games = 1, size_t plies = 1) {
   }
   config.self_play.max_plies = plies;
   config.self_play.search_limits.max_depth = 1;
-  config.self_play.simulated_move_cost_ms = 1000;
+  config.self_play.deterministic_move_time_ms = 1000;
   return config;
 }
 
@@ -146,6 +146,9 @@ TEST_CASE("tournament CSV contains raw results and reproduction metadata",
   REQUIRE(text.find("game_index,seed,base_seed,matchup_identity,result") == 0);
   REQUIRE(text.find("agent0_config") != std::string::npos);
   REQUIRE(text.find("initial_clock0_ms") != std::string::npos);
+  REQUIRE(text.find("clock_mode,deterministic_move_time_ms") !=
+          std::string::npos);
+  REQUIRE(text.find("deterministic_player0_ms") != std::string::npos);
   REQUIRE(text.find("fulfilled_requests") != std::string::npos);
   REQUIRE(text.find("actual_partner_uses") != std::string::npos);
   REQUIRE(text.find(std::to_string(result.games[0].seed)) != std::string::npos);

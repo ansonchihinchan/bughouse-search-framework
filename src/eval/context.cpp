@@ -12,18 +12,12 @@
 
 namespace {
 constexpr float DANGER_THRESHOLD = 0.f;
-constexpr float STALL_THRESHOLD = 0.35f;
-constexpr float STALL_MATERIAL_UNIT = 550.f;
 } // namespace
 
 bool is_dangerous(const Board &board, int phase) {
   KingSafetyEvaluator eval;
   return eval.evaluate(make_classical_context(board)).final(phase) <=
          DANGER_THRESHOLD;
-}
-
-bool should_stall(float stall_intent) {
-  return stall_intent >= STALL_THRESHOLD;
 }
 
 PartnerContext make_partner_context(const BughousePosition &position,
@@ -44,10 +38,19 @@ PartnerContext make_partner_context(const BughousePosition &position,
 
   partner_context.phase = phase;
 
-  // TODO
-  partner_context.stall_intent = 0.f;
-
   return partner_context;
+}
+
+bool is_fresh_partner_message(const BughousePosition &position,
+                              PlayerId recipient, const Message &message) {
+  if (to_int(recipient) < 0 || to_int(recipient) >= PLAYER_NO)
+    return false;
+  PlayerId expected_sender = partner_of(recipient);
+  if (message.sender != expected_sender)
+    return false;
+  int current_move = position.boards[board_of(expected_sender)].fullMove;
+  return message.move_no <= current_move &&
+         current_move - message.move_no <= MAX_MESSAGE_AGE;
 }
 
 PredictionSummary make_prediction_summary(const BughousePosition &position,
@@ -76,6 +79,7 @@ PredictionSummary make_prediction_summary(const BughousePosition &position,
         std::clamp(strat.confidence * urgency_weight(strat.urgency), 0.f, 1.f);
     summary.expected_incoming_value +=
         summary.attack_confidence * PieceValue::PIECE_VALUE[KNIGHT];
+    summary.receive_probability[KNIGHT] = summary.attack_confidence;
   }
 
   float danger_ratio =
@@ -96,8 +100,11 @@ CommunicationContext
 make_communication_context(const BughousePosition &position,
                            PlayerId root_player, const Channel &channel) {
   CommunicationContext context;
+  context.origin_player = root_player;
   const PlayerId partner = partner_of(root_player);
   context.message = channel.latest(partner);
+  if (!is_fresh_partner_message(position, root_player, context.message))
+    context.message = Message{};
   context.partner = make_partner_context(position, partner);
 
   PlayerId other_side_partner = partner_of(next_player(root_player));
@@ -112,12 +119,19 @@ make_communication_context(const BughousePosition &position,
 
 uint64_t communication_hash(const CommunicationContext &context) {
   uint64_t hash = 0xcbf29ce484222325ULL;
+  hash = hash_combine(hash,
+                      static_cast<uint64_t>(to_int(context.origin_player) + 1));
 
   const PartnerContext &partner = context.partner;
   hash = hash_combine(hash, static_cast<uint64_t>(partner.material_balance));
   hash = hash_combine(hash, static_cast<uint64_t>(partner.king_danger));
   hash = hash_combine(hash, static_cast<uint64_t>(partner.phase));
-  hash = hash_combine(hash, hash_float(partner.stall_intent));
+  for (const PartnerContext &by_colour : context.partner_by_colour) {
+    hash =
+        hash_combine(hash, static_cast<uint64_t>(by_colour.material_balance));
+    hash = hash_combine(hash, static_cast<uint64_t>(by_colour.king_danger));
+    hash = hash_combine(hash, static_cast<uint64_t>(by_colour.phase));
+  }
 
   const Message &message = context.message;
   hash = hash_combine(hash, static_cast<uint64_t>(to_int(message.sender)));
