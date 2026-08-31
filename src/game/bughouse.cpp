@@ -41,13 +41,13 @@ uint64_t position_hash(const BughousePosition &position) {
   return hash;
 }
 
+// Assumes move is already validated
 BughouseUndo apply_move(BughousePosition &position, PlayerId player,
                         Move move) {
   assert(position.boards[board_of(player)].is_legal(move));
 
   int board_idx = board_of(player);
   Board &board = position.boards[board_idx];
-  Colour player_colour = colour_of(player);
 
   PlayerId partner = partner_of(player);
   Pocket &player_pocket = position.pockets[to_int(player)];
@@ -146,13 +146,18 @@ GameResult BughouseState::result() const {
     }
   }
   for (int b = 0; b < BOARD_NO; b++) {
-    if (position.boards[b].is_checkmate()) {
-      Colour loser = position.boards[b].sideToMove;
-      int player_id = (b == 0) ? loser : (3 - loser);
+    PlayerId player = player_on_board(b, position.boards[b].sideToMove);
+    if (is_checkmate(position, player)) {
+      int player_id = to_int(player);
       return (player_id == 0 || player_id == 2) ? GameResult::TEAM_B_WINS
                                                 : GameResult::TEAM_A_WINS;
     }
   }
+  if (!history.empty() && history.back().repetition < 0)
+    return GameResult::DRAW;
+  for (const Board &board : position.boards)
+    if (board.halfMove >= HALFMOVE_LIMIT)
+      return GameResult::DRAW;
   // Stalemate is not treated as a loss or draw: the stalemated side simply has
   // no board move available this instant. Their own clock keeps running until
   // their partner captures something on the other board crediting a piece to
@@ -200,3 +205,18 @@ void BughouseState::print() const {
   std::cout << "Pocket 2 (Black): ";
   position.pockets[2].print();
 }
+
+bool is_legal_move(const BughousePosition &position, PlayerId player,
+                   Move move) {
+  if (to_int(player) < 0 || to_int(player) >= PLAYER_NO)
+    return false;
+
+  auto moves = generate_legal_moves(position, player);
+  return std::find(moves.begin(), moves.end(), move) != moves.end();
+}
+
+std::optional<BughouseUndo> try_apply_move(BughousePosition &position,
+                                           PlayerId player, Move move) {
+  if (!is_legal_move(position, player, move))
+    return std::nullopt;
+  return apply_move(position, player, move);
