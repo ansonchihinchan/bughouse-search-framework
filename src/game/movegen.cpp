@@ -173,7 +173,8 @@ std::vector<Move> generate_legal_moves(const BughousePosition &position,
   auto moves =
       generate_pseudo_legal_moves(board, &position.pockets[to_int(player)]);
 
-  std::erase_if(moves, [&](const Move &move) { return !board.is_legal(move); });
+  std::erase_if(moves,
+                [&](const Move &move) { return !board.is_king_safe_after(move); });
 
   return moves;
 }
@@ -208,7 +209,7 @@ uint64_t perft(Board &board, int depth, const Pocket *pocket) {
   auto moves = generate_pseudo_legal_moves(board, pocket);
   uint64_t nodes = 0;
   for (auto move : moves) {
-    if (!board.is_legal(move))
+    if (!board.is_king_safe_after(move))
       continue;
 
     if (move.is_drop()) {

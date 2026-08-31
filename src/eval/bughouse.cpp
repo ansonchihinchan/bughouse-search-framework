@@ -99,15 +99,18 @@ BughouseEvaluationConfig BughouseEvaluationConfig::shared_value() {
 BughouseEvaluator::BughouseEvaluator(BughouseEvaluationConfig config)
     : config_(config) {
   features_.push_back(std::make_unique<DropEvaluator>());
-  features_.push_back(std::make_unique<ExchangeEvaluator>());
+  if (config_.include_communication)
+    communication_features_.push_back(std::make_unique<ExchangeEvaluator>());
+  else
+    features_.push_back(std::make_unique<ExchangeEvaluator>());
   features_.push_back(std::make_unique<InitiativeEvaluator>());
   features_.push_back(std::make_unique<KingDangerEvaluator>());
   if (config_.include_communication)
-    features_.push_back(std::make_unique<PartnerEvaluator>());
+    communication_features_.push_back(std::make_unique<PartnerEvaluator>());
   features_.push_back(
       std::make_unique<PocketEvaluator>(config_.include_partner_pockets));
   if (config_.include_communication)
-    features_.push_back(std::make_unique<PredictionEvaluator>());
+    communication_features_.push_back(std::make_unique<PredictionEvaluator>());
 }
 
 int BughouseEvaluator::evaluate(
@@ -143,7 +146,21 @@ int BughouseEvaluator::evaluate(
     score += partner_score;
   }
   
-  return score.final(eval_context.classical.phase);
+  int final_score = score.final(eval_context.classical.phase);
+  if (!communication_features_.empty()) {
+    PlayerId communication_player =
+        comm_context.origin_player == NO_PLAYER ? root_player
+                                                : comm_context.origin_player;
+    EvalContext communication_context = make_eval_context(
+        position, communication_player, remaining, comm_context);
+    EvalScore communication_score(0);
+    for (const auto &feature : communication_features_)
+      communication_score += feature->evaluate(communication_context);
+    final_score +=
+        team_sign(root_player, communication_player) *
+        communication_score.final(communication_context.classical.phase);
+  }
+  return final_score;
 }
 
 bool BughouseEvaluator::is_noisy(const BughousePosition &position,

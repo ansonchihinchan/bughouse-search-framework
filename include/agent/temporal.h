@@ -69,7 +69,7 @@ public:
   GameResult position_result(const TemporalState &state) const;
 
 private:
-  GameResult advance_clocks(TemporalState &state, PlayerId actor) const;
+  GameResult advance_clocks(TemporalState &state) const;
 
   const TemporalConfig &config_;
 };

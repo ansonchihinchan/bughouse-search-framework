@@ -150,7 +150,7 @@ TEST_CASE("PlayerId converts to/from int and compares against raw ints",
 
 TEST_CASE("PlayerId::operator^ flips side and partner as expected",
           "[types][playerid]") {
-  // Board 0: (0, 1) 
+  // Board 0: (0, 1)
   REQUIRE((to_player(0) ^ 1) == 1);
   REQUIRE((to_player(1) ^ 1) == 0);
 

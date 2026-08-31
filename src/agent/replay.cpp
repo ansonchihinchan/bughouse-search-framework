@@ -1,4 +1,5 @@
 #include "agent/replay.h"
+#include <cmath>
 #include <iomanip>
 #include <limits>
 #include <sstream>
@@ -18,6 +19,15 @@ struct PendingDrop {
   size_t coordination_credit = 0;
   bool active = false;
 };
+
+constexpr size_t MAX_REPLAY_EVENTS = 100000;
+constexpr size_t MAX_REPLAY_HISTORY = 100000;
+constexpr int MAX_REPLAY_POCKET_COUNT = 64;
+
+void require(bool condition, const std::string &message) {
+  if (!condition)
+    throw std::runtime_error("invalid replay: " + message);
+}
 
 void require_token(std::istream &in, const char *expected) {
   std::string token;
@@ -64,6 +74,41 @@ void print_current_players(std::ostream &out,
   out << "Current players: A=P"
       << to_int(player_on_board(0, position.boards[0].sideToMove)) << " B=P"
       << to_int(player_on_board(1, position.boards[1].sideToMove)) << '\n';
+}
+
+void validate_replay_events(const GameReplay &replay) {
+  BughousePosition position = replay.initial_state.position;
+  for (size_t index = 0; index < replay.events.size(); ++index) {
+    const ReplayEvent &event = replay.events[index];
+    require(event.event_index == index, "event indices are not contiguous");
+    require(event.board == board_of(event.actor),
+            "event board does not match actor's board");
+    require(
+        player_on_board(event.board, position.boards[event.board].sideToMove) ==
+            event.actor,
+        "event actor is not side to move");
+    require(try_apply_move(position, event.actor, event.move).has_value(),
+            "illegal event move");
+    require(position.pockets == event.pockets_after,
+            "event pocket snapshot does not match move result");
+    for (int64_t clock : event.clocks_after_ms)
+      require(clock >= 0, "negative event clock");
+    if (event.message) {
+      const Message &message = *event.message;
+      require(message.sender == event.actor,
+              "message sender does not match event actor");
+      require(std::isfinite(message.piece_request.confidence) &&
+                  message.piece_request.confidence >= 0.f &&
+                  message.piece_request.confidence <= 1.f,
+              "invalid piece request confidence");
+      require(std::isfinite(message.strat_request.confidence) &&
+                  message.strat_request.confidence >= 0.f &&
+                  message.strat_request.confidence <= 1.f,
+              "invalid strategy request confidence");
+      require(message.piece_request.eta_plies >= 0,
+              "negative piece request ETA");
+    }
+  }
 }
 } // namespace
 
@@ -131,7 +176,12 @@ ReplayMetrics analyse_replay(const GameReplay &replay) {
       recipient_before[pt] =
           position.pockets[to_int(recipient)].count(static_cast<PieceType>(pt));
 
-    BughouseUndo undo = apply_move(position, event.actor, event.move);
+    std::optional<BughouseUndo> undo_opt =
+        try_apply_move(position, event.actor, event.move);
+    if (!undo_opt)
+      throw std::runtime_error("invalid replay: illegal move at event " +
+                               std::to_string(event.event_index));
+    const BughouseUndo &undo = *undo_opt;
     if (undo.creditedPartner && recipient_before[undo.creditedPiece] == 0) {
       Opportunity &opportunity =
           opportunities[to_int(recipient)][undo.creditedPiece];
@@ -232,6 +282,8 @@ GameReplay read_replay(std::istream &in) {
     for (int pt = PAWN; pt <= QUEEN; pt++) {
       int count = 0;
       in >> count;
+      require(count >= 0 && count <= MAX_REPLAY_POCKET_COUNT,
+              "invalid pocket count");
       for (int i = 0; i < count; i++)
         replay.initial_state.position.pockets[player].add(
             static_cast<PieceType>(pt));
@@ -244,12 +296,14 @@ GameReplay read_replay(std::istream &in) {
   require_token(in, "HISTORY");
   size_t history_count = 0;
   in >> history_count;
+  require(history_count <= MAX_REPLAY_HISTORY, "too many history nodes");
   replay.initial_state.history.resize(history_count);
   for (RepetitionNode &node : replay.initial_state.history)
     in >> node.key >> node.reversible_plies >> node.repetition;
   require_token(in, "EVENTS");
   size_t event_count = 0;
   in >> event_count;
+  require(event_count <= MAX_REPLAY_EVENTS, "too many events");
   replay.events.reserve(event_count);
   for (size_t i = 0; i < event_count; i++) {
     require_token(in, "EVENT");
@@ -257,6 +311,14 @@ GameReplay read_replay(std::istream &in) {
     int actor = 0, move_type = 0, promote = 0, drop = 0, has_message = 0;
     in >> event.event_index >> actor >> event.board >> event.move.from >>
         event.move.to >> move_type >> promote >> drop;
+    require(actor >= 0 && actor < PLAYER_NO, "event actor out of range");
+    require(event.board == 0 || event.board == 1, "event board out of range");
+    require(event.board == board_of(to_player(actor)),
+            "event board does not match actor's board");
+    require(move_type >= NORMAL && move_type <= DROP, "bad move type");
+    require(promote >= NO_PIECE_TYPE && promote <= KING,
+            "bad promotion piece type");
+    require(drop >= NO_PIECE_TYPE && drop <= KING, "bad drop piece type");
     event.actor = to_player(actor);
     event.move.type = static_cast<MoveType>(move_type);
     event.move.promote_pt = static_cast<PieceType>(promote);
@@ -267,6 +329,8 @@ GameReplay read_replay(std::istream &in) {
       for (int pt = PAWN; pt <= QUEEN; pt++) {
         int count = 0;
         in >> count;
+        require(count >= 0 && count <= MAX_REPLAY_POCKET_COUNT,
+                "invalid pocket count");
         for (int n = 0; n < count; n++)
           event.pockets_after[player].add(static_cast<PieceType>(pt));
       }
@@ -279,6 +343,17 @@ GameReplay read_replay(std::istream &in) {
           message.piece_request.confidence >> piece_urgency >>
           message.piece_request.eta_plies >> strategy >>
           message.strat_request.confidence >> strategy_urgency;
+      require(sender >= 0 && sender < PLAYER_NO, "message sender out of range");
+      require(piece >= NO_PIECE_TYPE && piece <= KING,
+              "bad requested piece type");
+      require(piece_urgency >= 0 &&
+                  piece_urgency <= static_cast<int>(Urgency::Critical),
+              "bad piece request urgency");
+      require(strategy >= 0 && strategy <= static_cast<int>(StrategyType::Flag),
+              "bad strategy type");
+      require(strategy_urgency >= 0 &&
+                  strategy_urgency <= static_cast<int>(Urgency::Critical),
+              "bad strategy request urgency");
       message.sender = to_player(sender);
       message.piece_request.piece = static_cast<PieceType>(piece);
       message.piece_request.urgency = static_cast<Urgency>(piece_urgency);
@@ -291,9 +366,13 @@ GameReplay read_replay(std::istream &in) {
   require_token(in, "RESULT");
   int result = 0;
   in >> result;
+  require(result >= static_cast<int>(GameResult::ONGOING) &&
+              result <= static_cast<int>(GameResult::DRAW),
+          "bad terminal result");
   replay.terminal_result = static_cast<GameResult>(result);
   if (!in)
     throw std::runtime_error("truncated replay");
+  validate_replay_events(replay);
   return replay;
 }
 
@@ -305,7 +384,9 @@ void view_replay(std::ostream &out, const GameReplay &replay, bool step_by_step,
   print_pockets(out, position.pockets);
   print_current_players(out, position);
   for (const ReplayEvent &event : replay.events) {
-    apply_move(position, event.actor, event.move);
+    if (!try_apply_move(position, event.actor, event.move))
+      throw std::runtime_error("invalid replay: illegal move at event " +
+                               std::to_string(event.event_index));
     out << "\nEvent " << event.event_index << ": player " << to_int(event.actor)
         << " board " << (event.board == 0 ? 'A' : 'B') << " move "
         << event.move.to_string() << '\n';

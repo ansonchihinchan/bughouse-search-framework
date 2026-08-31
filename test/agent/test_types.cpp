@@ -278,3 +278,36 @@ TEST_CASE("experiment configuration builds a reproducible mixed-strategy "
     REQUIRE(first.agent(to_player(i)).seed() ==
             second.agent(to_player(i)).seed());
 }
+
+TEST_CASE("request-aware evaluator does not leak a partner request onto the "
+          "opponent's node",
+          "[agent][strategy][request][communication][team_perspective]") {
+  BughousePosition position;
+  position.pockets[1].add(KNIGHT);
+  std::array<int64_t, PLAYER_NO> remaining{};
+
+  CommunicationContext quiet{};
+  CommunicationContext requested{};
+  quiet.origin_player = to_player(0);
+  requested.origin_player = to_player(0);
+  requested.message.sender = to_player(2);
+  requested.message.piece_request = {KNIGHT, 1.0f, Urgency::Critical, 0};
+
+  AgentConfig config;
+  config.type = AgentType::Request;
+  Channel channel;
+  auto strategy = make_agent(config, &channel);
+
+  int origin_quiet =
+      strategy->evaluator().evaluate(position, to_player(0), remaining, quiet);
+  int origin_requested = strategy->evaluator().evaluate(position, to_player(0),
+                                                        remaining, requested);
+  REQUIRE(origin_requested != origin_quiet);
+
+  int opponent_quiet =
+      strategy->evaluator().evaluate(position, to_player(1), remaining, quiet);
+  int opponent_requested = strategy->evaluator().evaluate(
+      position, to_player(1), remaining, requested);
+  REQUIRE(origin_requested - origin_quiet ==
+          -(opponent_requested - opponent_quiet));
+}

@@ -64,10 +64,6 @@ EvalScore ExchangeEvaluator::evaluate(const EvalContext &context) const {
   float danger_ratio =
       static_cast<float>(partner_danger_scale) / PARTNER_KING_DANGER_CLAMP;
 
-  float request_weight = message.piece_request.confidence *
-                         urgency_weight(message.piece_request.urgency) *
-                         eta_weight(message.piece_request.eta_plies);
-
   float danger_signal_weight =
       message.strat_request.strat == StrategyType::Defend
           ? message.strat_request.confidence *
@@ -77,10 +73,17 @@ EvalScore ExchangeEvaluator::evaluate(const EvalContext &context) const {
   bool danger = danger_ratio > 0.f || danger_signal_weight > 0.f;
 
   auto help_multiplier = [&](PieceType pt) -> std::pair<float, float> {
-    float requested_mid =
-        (message.piece_request.piece == pt) ? EXCHANGE_REQUEST_BONUS_MID : 0.f;
-    float requested_end =
-        (message.piece_request.piece == pt) ? EXCHANGE_REQUEST_BONUS_END : 0.f;
+    float request_weight = std::clamp(
+        message.piece_request.confidence *
+            urgency_weight(message.piece_request.urgency) *
+            eta_weight(message.piece_request.eta_plies),
+        0.f, 1.f);
+    float requested_mid = message.piece_request.piece == pt
+                              ? EXCHANGE_REQUEST_BONUS_MID * request_weight
+                              : 0.f;
+    float requested_end = message.piece_request.piece == pt
+                              ? EXCHANGE_REQUEST_BONUS_END * request_weight
+                              : 0.f;
     float help_bonus = danger ? EXCHANGE_PARTNER_HELP_BONUS : 0.f;
 
     return {EXCHANGE_BASE_MULTIPLIER + requested_mid + help_bonus,

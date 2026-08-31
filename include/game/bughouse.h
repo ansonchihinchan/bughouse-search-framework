@@ -13,6 +13,8 @@
 
 enum class GameResult { ONGOING, TEAM_A_WINS, TEAM_B_WINS, DRAW };
 
+inline constexpr int HALFMOVE_LIMIT = 100;
+
 struct BughouseUndo {
   BoardUndo board;
 
@@ -129,3 +131,7 @@ void undo_null_move(BughousePosition &position, PlayerId player,
 
 bool is_checkmate(const BughousePosition &position, PlayerId player);
 bool is_stalemate(const BughousePosition &position, PlayerId player);
+bool is_legal_move(const BughousePosition &position, PlayerId player,
+                   Move move);
+std::optional<BughouseUndo> try_apply_move(BughousePosition &position,
+                                           PlayerId player, Move move);

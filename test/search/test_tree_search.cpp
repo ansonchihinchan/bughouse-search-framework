@@ -257,7 +257,7 @@ TEST_CASE("search() halts immediately when the stop_token is already "
   REQUIRE(result.stats.depth_reached == 0);
 }
 
-TEST_CASE("search() reports no move and a zero score for an already "
+TEST_CASE("search() reports no move and checkmate score for an already "
           "checkmated root position",
           "[search][tree_search]") {
   // Black to move and checkmated on board 0. Player 1 is Black on board 0.
@@ -279,7 +279,7 @@ TEST_CASE("search() reports no move and a zero score for an already "
   SearchResult result = search.search(pos, context, limits, src.get_token());
 
   REQUIRE(result.best_move.is_none());
-  REQUIRE(result.score == 0);
+  REQUIRE(result.score == -INF_SCORE);
   REQUIRE(result.stats.depth_reached == 0);
 }
 

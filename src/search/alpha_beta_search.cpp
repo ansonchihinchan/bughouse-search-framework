@@ -29,8 +29,8 @@ int AlphaBetaSearch::search_tail_move(BughousePosition &position,
                         ply + 1, is_pv, stop_token);
 
   if (score > alpha && score < beta)
-    score = -alpha_beta(position, next, prev, depth - 1, -beta, -alpha,
-                        ply + 1, is_pv, stop_token);
+    score = -alpha_beta(position, next, prev, depth - 1, -beta, -alpha, ply + 1,
+                        is_pv, stop_token);
   return score;
 }
 
@@ -77,8 +77,7 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
       return !board.is_capture(m) || !board.is_legal(m);
     });
 
-    const Pocket &pocket =
-        position.pockets[to_int(context.root_player)];
+    const Pocket &pocket = position.pockets[to_int(context.root_player)];
     DropCheckMasks checking = drop_check_masks(board, mover_colour);
     for (int pt = PAWN; pt <= QUEEN; pt++) {
       PieceType piece_type = static_cast<PieceType>(pt);
@@ -97,7 +96,8 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
     // SEE filtering, (Delta pruning currently removed)
     if (params_.see_enabled) {
       std::erase_if(moves, [&](const Move &m) {
-        if (m.is_drop())
+        if (m.is_drop() || m.type == PROMOTE ||
+            move_gives_check(board, m, mover_colour))
           return false;
 
         SEE::Result see = SEE::see_result(board, m);
@@ -117,7 +117,10 @@ int AlphaBetaSearch::quiescence(BughousePosition &position,
     int see_score =
         m.is_drop() ? SEE::PIECE_VALUE[m.drop_pt] + SEE::POCKET_BONUS[m.drop_pt]
                     : SEE::see_score(board, m);
-    scored_moves.push_back(ScoredMove{m, see_score});
+    ScoredMove scored;
+    scored.move = m;
+    scored.score = see_score;
+    scored_moves.push_back(scored);
   }
 
   std::sort(scored_moves.begin(), scored_moves.end(),
