@@ -16,40 +16,10 @@ namespace {
 bool has_check_drop(const Board &board, const Pocket &pocket, Colour mover) {
   init_attack_tables();
 
-  Colour enemy = flip(mover);
-  Bitboard enemy_king = board.bitboard_piece(make_piece(enemy, KING));
-  if (!enemy_king)
-    return false;
-
-  Square ksq = static_cast<Square>(std::countr_zero(enemy_king));
-  Bitboard occ = board.bitboard_all();
-  Bitboard empty = ~occ;
-
-  if (pocket.contains(KNIGHT) && (knight_attacks(ksq) & empty))
-    return true;
-
-  if ((pocket.contains(BISHOP) || pocket.contains(QUEEN)) &&
-      (bishop_attacks(ksq, occ) & empty))
-    return true;
-
-  if ((pocket.contains(ROOK) || pocket.contains(QUEEN)) &&
-      (rook_attacks(ksq, occ) & empty))
-    return true;
-
-  if (pocket.contains(PAWN)) {
-    int back_rank_offset = (mover == WHITE) ? -8 : 8;
-    for (int file_offset : {-1, 1}) {
-      Square candidate = ksq + back_rank_offset + file_offset;
-      if (candidate < 0 || candidate >= SQUARE_NO)
-        continue;
-      if (std::abs(file_of(candidate) - file_of(ksq)) != 1)
-        continue;
-      if (rank_of(candidate) == 0 || rank_of(candidate) == 7)
-        continue;
-      if (empty & (1ULL << candidate))
-        return true;
-    }
-  }
+  DropCheckMasks masks = drop_check_masks(board, mover);
+  for (PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN})
+    if (pocket.contains(pt) && masks.for_piece(pt))
+      return true;
 
   return false;
 }
@@ -145,12 +115,12 @@ int BughouseEvaluator::evaluate(
     }
     score += partner_score;
   }
-  
+
   int final_score = score.final(eval_context.classical.phase);
   if (!communication_features_.empty()) {
-    PlayerId communication_player =
-        comm_context.origin_player == NO_PLAYER ? root_player
-                                                : comm_context.origin_player;
+    PlayerId communication_player = comm_context.origin_player == NO_PLAYER
+                                        ? root_player
+                                        : comm_context.origin_player;
     EvalContext communication_context = make_eval_context(
         position, communication_player, remaining, comm_context);
     EvalScore communication_score(0);
@@ -179,15 +149,14 @@ float BughouseEvaluator::volatility(const BughousePosition &position,
   int own_board = board_of(root_player);
   float pocket =
       VOLATILITY_OWN_BOARD_WEIGHT *
-          (pocket_weight_sum(position.pockets[to_int(root_player)]) +
-           pocket_weight_sum(
-               position.pockets[to_int(next_player(root_player))]));
+      (pocket_weight_sum(position.pockets[to_int(root_player)]) +
+       pocket_weight_sum(position.pockets[to_int(next_player(root_player))]));
   if (config_.include_partner_board) {
-    pocket += VOLATILITY_PARTNER_BOARD_WEIGHT *
-              (pocket_weight_sum(
-                   position.pockets[to_int(partner_of(root_player))]) +
-               pocket_weight_sum(position.pockets[to_int(
-                   partner_of(next_player(root_player)))]));
+    pocket +=
+        VOLATILITY_PARTNER_BOARD_WEIGHT *
+        (pocket_weight_sum(position.pockets[to_int(partner_of(root_player))]) +
+         pocket_weight_sum(
+             position.pockets[to_int(partner_of(next_player(root_player)))]));
   }
   pocket = std::clamp(pocket, 0.f, 1.f);
 
@@ -195,9 +164,9 @@ float BughouseEvaluator::volatility(const BughousePosition &position,
       VOLATILITY_OWN_BOARD_WEIGHT * board_exposure(position.boards[own_board]);
   if (config_.include_partner_board) {
     int partner_board = 1 - own_board;
-    exposure = std::max(
-        exposure, VOLATILITY_PARTNER_BOARD_WEIGHT *
-                      board_exposure(position.boards[partner_board]));
+    exposure =
+        std::max(exposure, VOLATILITY_PARTNER_BOARD_WEIGHT *
+                               board_exposure(position.boards[partner_board]));
   }
   exposure = std::clamp(exposure, 0.f, 1.f);
 

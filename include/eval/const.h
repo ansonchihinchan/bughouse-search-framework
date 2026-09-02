@@ -131,7 +131,7 @@ constexpr int INITIATIVE_TEMPO_BONUS_END = 10;
 constexpr float VOLATILITY_POCKET_WEIGHT[PIECE_TYPE_NO] = { 0.f, 0.05f, 0.10f, 0.10f, 0.15f, 0.25f, 0.f};
 constexpr float VOLATILITY_EXPOSURE_SCALE = 0.5f;
 constexpr float VOLATILITY_OWN_BOARD_WEIGHT = 1.0f;
-constexpr float VOLATILITY_PARTNER_BOARD_WEIGHT = 0.5f;\
+constexpr float VOLATILITY_PARTNER_BOARD_WEIGHT = 0.5f;
 
 // --- Shared Helpers ---
 inline float urgency_weight(Urgency urgency) {
