@@ -293,11 +293,10 @@ Message generate(const SearchResult &search_result,
   if (choice.piece != NO_PIECE_TYPE) {
     message.piece_request.piece = choice.piece;
     message.piece_request.confidence = piece_confidence(choice);
-    message.piece_request.urgency = board.is_in_check() ? Urgency::Critical
-                                    : choice.checking_squares >=
-                                              MANY_CHECKING_SQUARES
-                                        ? Urgency::High
-                                        : Urgency::Medium;
+    message.piece_request.urgency =
+        board.is_in_check()                                ? Urgency::Critical
+        : choice.checking_squares >= MANY_CHECKING_SQUARES ? Urgency::High
+                                                           : Urgency::Medium;
     message.piece_request.eta_plies =
         estimate_eta(position, root_player, choice);
   }

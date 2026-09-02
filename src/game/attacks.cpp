@@ -126,8 +126,7 @@ DropCheckMasks drop_check_masks(const Board &board, Colour colour) {
   Bitboard occ = board.bitboard_all();
   Bitboard empty = ~occ;
 
-  masks.pawn = pawn_attacks(king_bb, enemy) & empty &
-               ~0xFF000000000000FFULL;
+  masks.pawn = pawn_attacks(king_bb, enemy) & empty & ~0xFF000000000000FFULL;
   masks.knight = knight_attacks(ksq) & empty;
   masks.bishop = bishop_attacks(ksq, occ) & empty;
   masks.rook = rook_attacks(ksq, occ) & empty;

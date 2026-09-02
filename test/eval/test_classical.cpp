@@ -52,7 +52,7 @@ TEST_CASE("ClassicalEvaluator::is_noisy is true when the side to move is in "
   // Black king in check
   board.load_fen("4k3/5Q2/5K2/8/8/8/8/8 b - - 0 1");
 
-  ClassicalEvaluator eval; 
+  ClassicalEvaluator eval;
   REQUIRE(eval.is_noisy(board));
 }
 

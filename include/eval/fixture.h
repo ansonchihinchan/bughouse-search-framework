@@ -17,11 +17,11 @@ struct Fixture {
   explicit Fixture(const std::string &fen) { board.load_fen(fen); }
 
   EvalContext context(PlayerId root_player) const {
-    return EvalContext{
-        make_classical_context(board),
-        BughouseContext{pockets, root_player, remaining},
-        CommunicationContext{root_player, partner, partner_by_colour, message,
-                             prediction}};
+    return EvalContext{make_classical_context(board),
+                       BughouseContext{pockets, root_player, remaining},
+                       CommunicationContext{root_player, partner,
+                                            partner_by_colour, message,
+                                            prediction}};
   }
 };
 

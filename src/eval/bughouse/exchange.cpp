@@ -73,11 +73,11 @@ EvalScore ExchangeEvaluator::evaluate(const EvalContext &context) const {
   bool danger = danger_ratio > 0.f || danger_signal_weight > 0.f;
 
   auto help_multiplier = [&](PieceType pt) -> std::pair<float, float> {
-    float request_weight = std::clamp(
-        message.piece_request.confidence *
-            urgency_weight(message.piece_request.urgency) *
-            eta_weight(message.piece_request.eta_plies),
-        0.f, 1.f);
+    float request_weight =
+        std::clamp(message.piece_request.confidence *
+                       urgency_weight(message.piece_request.urgency) *
+                       eta_weight(message.piece_request.eta_plies),
+                   0.f, 1.f);
     float requested_mid = message.piece_request.piece == pt
                               ? EXCHANGE_REQUEST_BONUS_MID * request_weight
                               : 0.f;
