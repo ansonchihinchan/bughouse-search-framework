@@ -15,7 +15,7 @@ public:
 
   Move first(int ply) const { return killer1_[ply]; }
   Move second(int ply) const { return killer2_[ply]; }
-  
+
   void clear() {
     killer1_.fill(Move{});
     killer2_.fill(Move{});

@@ -34,6 +34,7 @@ struct DropCheckMasks {
   Bitboard for_piece(PieceType pt) const;
 };
 
-// Empty legal squares from which a dropped piece would geometrically check the opposing king
+// Empty legal squares from which a dropped piece would geometrically check the
+// opposing king
 DropCheckMasks drop_check_masks(const Board &board, Colour colour);
 Bitboard drop_check_squares(const Board &board, PieceType pt, Colour colour);

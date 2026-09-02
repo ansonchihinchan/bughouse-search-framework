@@ -37,8 +37,8 @@ Bitboard promotion_support_targets(const Board &board, Colour colour) {
   Bitboard pawns = board.bitboard_piece(make_piece(colour, PAWN));
   int promo_rank = (colour == WHITE) ? 6 : 1;
   Bitboard about_to_promote = pawns & (0xFFULL << (promo_rank * 8));
-  Bitboard promotion_squares = colour == WHITE ? about_to_promote << 8
-                                                : about_to_promote >> 8;
+  Bitboard promotion_squares =
+      colour == WHITE ? about_to_promote << 8 : about_to_promote >> 8;
   return about_to_promote | promotion_squares;
 }
 
@@ -166,11 +166,11 @@ EvalScore pocket_drop_threat(const Board &board, const Pocket &pocket,
   EvalScore total(0);
   int active_types = 0;
   Bitboard promotion_targets = promotion_support_targets(board, colour);
-  Bitboard defensive_squares =
-      defensive_drop_squares(board, colour, empty);
+  Bitboard defensive_squares = defensive_drop_squares(board, colour, empty);
   DropCheckMasks checking = drop_check_masks(board, colour);
-  Bitboard enemy_non_king = board.bitboard_colour(flip(colour)) &
-                            ~board.bitboard_piece(make_piece(flip(colour), KING));
+  Bitboard enemy_non_king =
+      board.bitboard_colour(flip(colour)) &
+      ~board.bitboard_piece(make_piece(flip(colour), KING));
   bool can_fork = std::popcount(enemy_non_king) >= 2;
 
   for (int pt = PAWN; pt <= QUEEN; pt++) {
@@ -181,10 +181,10 @@ EvalScore pocket_drop_threat(const Board &board, const Pocket &pocket,
     Bitboard candidates = empty;
     if (piece_type == PAWN)
       candidates &= ~0xFF000000000000FFULL;
-    EvalScore threat = best_drop_threat(
-        board, piece_type, colour, enemy_king_zone, candidates,
-        checking.for_piece(piece_type), promotion_targets,
-        defensive_squares, can_fork);
+    EvalScore threat =
+        best_drop_threat(board, piece_type, colour, enemy_king_zone, candidates,
+                         checking.for_piece(piece_type), promotion_targets,
+                         defensive_squares, can_fork);
     if (threat.mid_game() != 0 || threat.end_game() != 0) {
       total += threat;
       active_types++;

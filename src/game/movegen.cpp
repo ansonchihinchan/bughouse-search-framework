@@ -173,8 +173,8 @@ std::vector<Move> generate_legal_moves(const BughousePosition &position,
   auto moves =
       generate_pseudo_legal_moves(board, &position.pockets[to_int(player)]);
 
-  std::erase_if(moves,
-                [&](const Move &move) { return !board.is_king_safe_after(move); });
+  std::erase_if(
+      moves, [&](const Move &move) { return !board.is_king_safe_after(move); });
 
   return moves;
 }
