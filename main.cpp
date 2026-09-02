@@ -1,6 +1,7 @@
 #include "agent/observer.h"
 #include "agent/replay.h"
 #include "agent/round_robin.h"
+#include <array>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -20,6 +21,9 @@ struct Options {
   int increment_seconds = 2;
   int64_t deterministic_move_time_ms = 1000;
   SearchAlgorithm algorithm = SearchAlgorithm::PVS;
+  std::array<AgentType, PLAYER_NO> agents = {
+      AgentType::Independent, AgentType::Independent, AgentType::Independent,
+      AgentType::Independent};
   ScheduleMode schedule = ScheduleMode::Homogeneous;
   std::string output;
   bool step = false;
@@ -27,6 +31,20 @@ struct Options {
   bool clock_mode_set = false;
   GameClockMode clock_mode = GameClockMode::RealTime;
 };
+
+AgentType parse_agent_type(std::string_view name) {
+  if (name == "independent")
+    return AgentType::Independent;
+  if (name == "request")
+    return AgentType::Request;
+  if (name == "shared_value")
+    return AgentType::SharedValue;
+  if (name == "sacrifice")
+    return AgentType::Sacrifice;
+
+  throw std::invalid_argument("agent must be one of: independent, "
+                              "request shared_value or sacrifice");
+}
 
 std::string next_value(int &index, int argc, char **argv) {
   if (++index >= argc)
@@ -59,6 +77,16 @@ Options parse_options(int start, int argc, char **argv) {
           std::stoll(next_value(i, argc, argv));
     else if (arg == "--output")
       options.output = next_value(i, argc, argv);
+    else if (arg == "--agents")
+      options.agents.fill(parse_agent_type(next_value(i, argc, argv)));
+    else if (arg == "--agent-0")
+      options.agents[0] = parse_agent_type(next_value(i, argc, argv));
+    else if (arg == "--agent-1")
+      options.agents[1] = parse_agent_type(next_value(i, argc, argv));
+    else if (arg == "--agent-2")
+      options.agents[2] = parse_agent_type(next_value(i, argc, argv));
+    else if (arg == "--agent-3")
+      options.agents[3] = parse_agent_type(next_value(i, argc, argv));
     else if (arg == "--step")
       options.step = true;
     else if (arg == "--live")
@@ -100,8 +128,9 @@ Options parse_options(int start, int argc, char **argv) {
 ExperimentConfig roster(const Options &options) {
   ExperimentConfig config;
   config.seed = options.seed;
-  for (AgentConfig &agent : config.agent_configs) {
-    agent.type = AgentType::Independent;
+  for (int p = 0; p < PLAYER_NO; p++) {
+    AgentConfig &agent = config.agent_configs[p];
+    agent.type = options.agents[p];
     agent.search = options.algorithm;
   }
   return config;
@@ -122,7 +151,10 @@ SelfPlayConfig game_config(const Options &options,
 
 void print_usage() {
   std::cout << "Usage:\n"
-               "  bughouse self-play [--seed N] [--depth N] [--max-plies N] "
+               "  bughouse self-play [--agents "
+               "independent|request|shared_value|sacrifice] [--agent-<0-3> "
+               "TYPE] [--seed N] "
+               "[--depth N] [--max-plies N] "
                "[--clock real|deterministic] [--time SEC] [--increment SEC] "
                "[--output game.replay] [--live]\n"
                "  bughouse tournament [--games N] [--seed N] "

@@ -22,7 +22,7 @@ struct AgentConfig {
   AgentType type = AgentType::Independent;
   SearchAlgorithm search = SearchAlgorithm::PVS;
   SearchParams search_params{};
-  size_t transposition_table_mb = 64;
+  size_t transposition_table_mb = 8;
   uint64_t seed = 0;
   TemporalConfig temporal_config{};
 };

@@ -29,4 +29,5 @@ target_include_directories(eval
 target_link_libraries(eval
     PUBLIC
         game
+        communication
 )

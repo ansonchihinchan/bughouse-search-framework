@@ -220,3 +220,4 @@ std::optional<BughouseUndo> try_apply_move(BughousePosition &position,
   if (!is_legal_move(position, player, move))
     return std::nullopt;
   return apply_move(position, player, move);
+}
