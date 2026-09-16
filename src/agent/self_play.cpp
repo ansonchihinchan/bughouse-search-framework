@@ -137,8 +137,12 @@ SelfPlayResult SelfPlayRunner::run(BughouseState &game,
       decision_start = timer.now();
     }
 
+    std::array<Message, PLAYER_NO> incoming_messages;
+    for (int p = 0; p < PLAYER_NO; ++p)
+      incoming_messages[p] = experiment_.channel().latest(to_player(p));
     AgentOutput output = experiment_.choose_move(game, selected_player,
                                                  decision_limits, stop_token);
+    result.budget_fallbacks += output.search_result.budget_fallback;
     int64_t elapsed_ms = config.deterministic_move_time_ms;
     int64_t player_time = config.deterministic_player_move_time_ms[actor_index];
     if (config.clock_mode == GameClockMode::Deterministic && player_time > 0)

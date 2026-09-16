@@ -159,7 +159,7 @@ void print_usage() {
                "[--output game.replay] [--live]\n"
                "  bughouse tournament [--games N] [--seed N] "
                "[--mode homogeneous|exhaustive] [--algorithm pvs|alpha_beta|"
-               "null_move] [--depth N] [--max-nodes N] [--time-ms N] "
+               "null_move] [--depth N] [--max-nodes N] [--max-plies N] [--time-ms N] "
                "[--clock real|deterministic] [--time SEC] [--increment SEC] "
                "[--output results.csv] [--live]\n"
                "  bughouse replay <file> [--step]\n";

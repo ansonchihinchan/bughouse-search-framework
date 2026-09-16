@@ -9,3 +9,7 @@ bench/results
 bench/positions
 
 bench/README.md
+
+*.csv
+
+*.replay

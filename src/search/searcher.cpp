@@ -12,10 +12,15 @@ SearchResult Searcher::run(const BughousePosition &position,
   SearchResult best;
   int max_depth = limits.max_depth > 0 ? limits.max_depth : 128;
   int prev_score = 0;
+  bool budget_interrupted = false;
 
   for (int depth = 1; depth <= max_depth; depth++) {
-    if (stop_token.stop_requested() || search_.deadline_reached())
+    if (stop_token.stop_requested())
       break;
+    if (search_.deadline_reached()) {
+      budget_interrupted = true;
+      break;
+    }
 
     begin_iteration(depth);
     int alpha = -INF_SCORE, beta = INF_SCORE;
@@ -35,15 +40,17 @@ SearchResult Searcher::run(const BughousePosition &position,
       result = search_.search_root(position, context, depth, alpha, beta,
                                    stop_token);
 
-      if (stop_token.stop_requested() || search_.deadline_reached())
+      if (stop_token.stop_requested() || search_.deadline_reached()) {
+        budget_interrupted = !result.completed;
         break;
+      }
 
-      if (result.score <= alpha) {
+      if (result.score <= alpha && alpha > -INF_SCORE) {
         alpha = std::max(-INF_SCORE, alpha - window);
-        window *= 2;
-      } else if (result.score >= beta) {
+        window = static_cast<int>(std::min<int64_t>(INF_SCORE, 2LL * window));
+      } else if (result.score >= beta && beta < INF_SCORE) {
         beta = std::min(INF_SCORE, beta + window);
-        window *= 2;
+        window = static_cast<int>(std::min<int64_t>(INF_SCORE, 2LL * window));
       } else {
         break;
       }
@@ -63,6 +70,18 @@ SearchResult Searcher::run(const BughousePosition &position,
 
     if (stop_token.stop_requested() || search_.deadline_reached())
       break;
+  }
+
+  // Exhausted budget before depth one completes
+  if (best.best_move.is_none() && budget_interrupted &&
+      !stop_token.stop_requested()) {
+    const auto legal = generate_legal_moves(position, context.root_player);
+    if (!legal.empty()) {
+      best = SearchResult{};
+      best.best_move = legal.front();
+      best.pv = {best.best_move};
+      best.budget_fallback = true;
+    }
   }
 
   search_.end_search();

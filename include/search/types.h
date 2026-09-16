@@ -81,6 +81,7 @@ struct SearchResult {
   std::vector<Move> pv;
   SearchStats stats;
   bool completed = false;
+  bool budget_fallback = false;
 };
 
 struct SearchParams {

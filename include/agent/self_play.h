@@ -74,6 +74,7 @@ struct SelfPlayResult {
   GameResult game_result = GameResult::ONGOING;
   SelfPlayTermination termination = SelfPlayTermination::PlyLimit;
   size_t plies = 0;
+  size_t budget_fallbacks = 0;
   size_t messages_sent = 0;
   size_t piece_requests_generated = 0;
   size_t strategy_requests_generated = 0;
