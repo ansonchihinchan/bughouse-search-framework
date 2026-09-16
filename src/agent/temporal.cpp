@@ -352,8 +352,8 @@ SearchResult TemporalCoordinator::select_move(
   last_decision_.result = baseline;
   const auto temporal_start = std::chrono::steady_clock::now();
 
-  if (baseline.budget_fallback || baseline.best_move.is_none() || stop_token.stop_requested() ||
-      deadline_reached(limits, decision_start))
+  if (baseline.budget_fallback || baseline.best_move.is_none() ||
+      stop_token.stop_requested() || deadline_reached(limits, decision_start))
     return baseline;
 
   std::array<int64_t, PLAYER_NO> remaining{};
