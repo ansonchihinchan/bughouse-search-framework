@@ -150,19 +150,20 @@ SelfPlayConfig game_config(const Options &options,
 }
 
 void print_usage() {
-  std::cout << "Usage:\n"
-               "  bughouse self-play [--agents "
-               "independent|request|shared_value|sacrifice] [--agent-<0-3> "
-               "TYPE] [--seed N] "
-               "[--depth N] [--max-plies N] "
-               "[--clock real|deterministic] [--time SEC] [--increment SEC] "
-               "[--output game.replay] [--live]\n"
-               "  bughouse tournament [--games N] [--seed N] "
-               "[--mode homogeneous|exhaustive] [--algorithm pvs|alpha_beta|"
-               "null_move] [--depth N] [--max-nodes N] [--max-plies N] [--time-ms N] "
-               "[--clock real|deterministic] [--time SEC] [--increment SEC] "
-               "[--output results.csv] [--live]\n"
-               "  bughouse replay <file> [--step]\n";
+  std::cout
+      << "Usage:\n"
+         "  bughouse self-play [--agents "
+         "independent|request|shared_value|sacrifice] [--agent-<0-3> "
+         "TYPE] [--seed N] "
+         "[--depth N] [--max-plies N] "
+         "[--clock real|deterministic] [--time SEC] [--increment SEC] "
+         "[--output game.replay] [--live]\n"
+         "  bughouse tournament [--games N] [--seed N] "
+         "[--mode homogeneous|exhaustive] [--algorithm pvs|alpha_beta|"
+         "null_move] [--depth N] [--max-nodes N] [--max-plies N] [--time-ms N] "
+         "[--clock real|deterministic] [--time SEC] [--increment SEC] "
+         "[--output results.csv] [--live]\n"
+         "  bughouse replay <file> [--step]\n";
 }
 
 int self_play_command(const Options &options) {
