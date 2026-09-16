@@ -213,7 +213,7 @@ TournamentResult TournamentRunner::run(const TournamentConfig &config,
 
 void write_tournament_csv(std::ostream &out, const TournamentResult &result) {
   out << "game_index,seed,base_seed,matchup_identity,result,winning_team,"
-         "termination,plies,";
+         "termination,plies,budget_fallbacks,";
   for (int player = 0; player < PLAYER_NO; player++)
     out << "agent" << player << "_config,";
   out << "board0_fen,board1_fen,initial_pockets,initial_history,"
@@ -239,7 +239,8 @@ void write_tournament_csv(std::ostream &out, const TournamentResult &result) {
     out << game.game_index << ',' << game.seed << ',' << config.matchup.seed
         << ',' << tournament_matchup_identity(config.matchup) << ','
         << result_name(r.game_result) << ',' << game.winning_team << ','
-        << termination_name(r.termination) << ',' << r.plies << ',';
+        << termination_name(r.termination) << ',' << r.plies << ','
+        << r.budget_fallbacks << ',';
     for (const AgentConfig &agent : config.matchup.agent_configs)
       out << '"' << agent_config_text(agent) << "\",";
     out << '"' << config.initial_state.position.boards[0].to_fen() << "\",\""
